@@ -40,11 +40,13 @@ function runCli(args: string[], cwd: string, sessionDirectory: string): CliOutpu
 	return JSON.parse(output) as CliOutput
 }
 
-const optimismRpc = process.env['TEVM_RPC_URLS_OPTIMISM']?.split(',')[0] ?? 'https://mainnet.optimism.io'
+const configuredOptimismRpc = process.env['TEVM_RPC_URLS_OPTIMISM']?.split(',')[0]
+const optimismRpc = configuredOptimismRpc ?? 'https://mainnet.optimism.io'
 const configuredMainnetRpc = process.env['TEVM_RPC_URLS_MAINNET']?.split(',')[0]
 const mainnetRpc = configuredMainnetRpc ?? 'https://eth.llamarpc.com'
-// Anonymous public mainnet RPCs reject GitHub-hosted runners intermittently.
-// Keep the full ENS coverage locally, and require TEVM_RPC_URLS_MAINNET in CI.
+// Anonymous public RPCs reject GitHub-hosted runners intermittently. Keep the
+// full coverage locally, and require the corresponding TEVM_RPC_URLS_* in CI.
+const optimismRpcTest = process.env.CI === 'true' && !configuredOptimismRpc ? it.skip : it
 const mainnetRpcTest = process.env.CI === 'true' && !configuredMainnetRpc ? it.skip : it
 const testAddress = '0x00000000000000000000000000000000000000aa'
 const weth = '0x4200000000000000000000000000000000000006'
@@ -392,52 +394,31 @@ describe('CLI integration', () => {
 		})
 	}, 240_000)
 
-	it('matches pinned Optimism RPC data and exact JSON shapes', () => {
-		const scratch = mkdtempSync(path.join(tmpdir(), 'tevm-cli-rpc-'))
-		const sessions = path.join(scratch, 'sessions')
-		const block = expectOk(
-			runCli(
-				['get-block', '--block-number', '130000000', '--rpc', optimismRpc, '--run', '--json'],
-				packageDirectory,
-				sessions,
-			),
-			'get-block',
-		)
-		expect(block).toMatchObject({
-			number: '130000000',
-			hash: '0xaf131f54209291613f0b74e61903405ea84bf30368ea5c6cf787992351ad843d',
-			stateRoot: '0xcc699442b96e42f638a8f4992c6beb4f5e9b289807de93e1ffe51cd1a694b5c0',
-		})
+	optimismRpcTest(
+		'matches pinned Optimism RPC data and exact JSON shapes',
+		() => {
+			const scratch = mkdtempSync(path.join(tmpdir(), 'tevm-cli-rpc-'))
+			const sessions = path.join(scratch, 'sessions')
+			const block = expectOk(
+				runCli(
+					['get-block', '--block-number', '130000000', '--rpc', optimismRpc, '--run', '--json'],
+					packageDirectory,
+					sessions,
+				),
+				'get-block',
+			)
+			expect(block).toMatchObject({
+				number: '130000000',
+				hash: '0xaf131f54209291613f0b74e61903405ea84bf30368ea5c6cf787992351ad843d',
+				stateRoot: '0xcc699442b96e42f638a8f4992c6beb4f5e9b289807de93e1ffe51cd1a694b5c0',
+			})
 
-		const transaction = expectOk(
-			runCli(
-				[
-					'get-transaction',
-					'--hash',
-					'0xae542f6973baf73afc935c37c99d9529792bc94d27e8d1ebc3df8a2a94a91343',
-					'--rpc',
-					optimismRpc,
-					'--run',
-					'--json',
-				],
-				packageDirectory,
-				sessions,
-			),
-			'get-transaction',
-		)
-		expect(transaction).toMatchObject({ blockHash: block.hash, blockNumber: '130000000' })
-
-		expect(
-			expectOk(
+			const transaction = expectOk(
 				runCli(
 					[
-						'get-storage-at',
-						'--address',
-						weth,
-						'--slot',
-						'0x0',
-						'--block-number',
-						'130000000',
+						'get-transaction',
+						'--hash',
+						'0xae542f6973baf73afc935c37c99d9529792bc94d27e8d1ebc3df8a2a94a91343',
 						'--rpc',
 						optimismRpc,
 						'--run',
@@ -446,51 +427,76 @@ describe('CLI integration', () => {
 					packageDirectory,
 					sessions,
 				),
-				'get-storage-at',
-			),
-		).toBe('0x577261707065642045746865720000000000000000000000000000000000001a')
+				'get-transaction',
+			)
+			expect(transaction).toMatchObject({ blockHash: block.hash, blockNumber: '130000000' })
 
-		const bytecode = expectOk(
-			runCli(
-				['get-bytecode', '--address', weth, '--block-number', '130000000', '--rpc', optimismRpc, '--run', '--json'],
-				packageDirectory,
-				sessions,
-			),
-			'get-bytecode',
-		)
-		expect(bytecode).toMatch(/^0x6080604052[0-9a-f]+$/)
-		expect(
-			expectOk(
-				runCli(['get-chain-id', '--rpc', optimismRpc, '--run', '--json'], packageDirectory, sessions),
-				'get-chain-id',
-			),
-		).toBe(10)
-		expect(
-			BigInt(
-				expectOk(
-					runCli(['get-gas-price', '--rpc', optimismRpc, '--run', '--json'], packageDirectory, sessions),
-					'get-gas-price',
-				),
-			),
-		).toBeGreaterThan(0n)
-		expect(
-			BigInt(
+			expect(
 				expectOk(
 					runCli(
-						['estimate-gas', '--to', weth, '--data', '0x06fdde03', '--rpc', optimismRpc, '--run', '--json'],
+						[
+							'get-storage-at',
+							'--address',
+							weth,
+							'--slot',
+							'0x0',
+							'--block-number',
+							'130000000',
+							'--rpc',
+							optimismRpc,
+							'--run',
+							'--json',
+						],
 						packageDirectory,
 						sessions,
 					),
-					'estimate-gas',
+					'get-storage-at',
 				),
-			),
-		).toBeGreaterThan(21_000n)
-		const fees = expectOk(
-			runCli(['estimate-fees-per-gas', '--rpc', optimismRpc, '--run', '--json'], packageDirectory, sessions),
-			'estimate-fees-per-gas',
-		)
-		expect(BigInt(fees.maxFeePerGas)).toBeGreaterThan(0n)
-	}, 240_000)
+			).toBe('0x577261707065642045746865720000000000000000000000000000000000001a')
+
+			const bytecode = expectOk(
+				runCli(
+					['get-bytecode', '--address', weth, '--block-number', '130000000', '--rpc', optimismRpc, '--run', '--json'],
+					packageDirectory,
+					sessions,
+				),
+				'get-bytecode',
+			)
+			expect(bytecode).toMatch(/^0x6080604052[0-9a-f]+$/)
+			expect(
+				expectOk(
+					runCli(['get-chain-id', '--rpc', optimismRpc, '--run', '--json'], packageDirectory, sessions),
+					'get-chain-id',
+				),
+			).toBe(10)
+			expect(
+				BigInt(
+					expectOk(
+						runCli(['get-gas-price', '--rpc', optimismRpc, '--run', '--json'], packageDirectory, sessions),
+						'get-gas-price',
+					),
+				),
+			).toBeGreaterThan(0n)
+			expect(
+				BigInt(
+					expectOk(
+						runCli(
+							['estimate-gas', '--to', weth, '--data', '0x06fdde03', '--rpc', optimismRpc, '--run', '--json'],
+							packageDirectory,
+							sessions,
+						),
+						'estimate-gas',
+					),
+				),
+			).toBeGreaterThan(21_000n)
+			const fees = expectOk(
+				runCli(['estimate-fees-per-gas', '--rpc', optimismRpc, '--run', '--json'], packageDirectory, sessions),
+				'estimate-fees-per-gas',
+			)
+			expect(BigInt(fees.maxFeePerGas)).toBeGreaterThan(0n)
+		},
+		240_000,
+	)
 
 	mainnetRpcTest(
 		'resolves ENS records against a pinned mainnet block',
