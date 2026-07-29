@@ -1,5 +1,16 @@
 # tevm-run
 
+## 1.0.0
+
+### Patch Changes
+
+- [`326665f`](https://github.com/evmts/tevm-cli/commit/326665f1b9b952f6eb7992fdf2ae7f7f5ffbf784) Thanks [@roninjin10](https://github.com/roninjin10)! - Publish the independently versioned TEVM command-line applications from their
+  new standalone repository.
+
+- [`4f49190`](https://github.com/evmts/tevm-cli/commit/4f4919072b32a89f70050eeeb4d00d36cdf89077) Thanks [@roninjin10](https://github.com/roninjin10)! - Fix `tevm-run` failing with `preload not found "./plugins.js"` when invoked from any directory other than the package's own.
+
+  Bun resolves a `bunfig.toml` `preload` entry relative to the current working directory rather than to the config file, so the packaged relative path only worked when Bun happened to run from inside the `tevm-run` package. `run()` now generates an equivalent config with an absolute preload path via the new `resolveConfigPath()` export, which behaves identically from any working directory. The existing `configPath` export is unchanged and still points at the packaged file.
+
 ## 1.0.0-rc.151
 
 ### Patch Changes

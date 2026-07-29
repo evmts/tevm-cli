@@ -1,5 +1,12 @@
 # @tevm/cli
 
+## 1.0.0
+
+### Patch Changes
+
+- [`326665f`](https://github.com/evmts/tevm-cli/commit/326665f1b9b952f6eb7992fdf2ae7f7f5ffbf784) Thanks [@roninjin10](https://github.com/roninjin10)! - Publish the independently versioned TEVM command-line applications from their
+  new standalone repository.
+
 ## 1.0.0-rc.151
 
 ### Patch Changes
