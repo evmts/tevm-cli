@@ -1,0 +1,75 @@
+# tevm sol
+
+`tevm sol` is the shortest path from a Solidity file to a return value: it compiles one
+source file, deploys the contract into an in-process EVM, calls one function, and prints
+the result. No session, no artifacts directory, no project config.
+
+## Working example
+
+The commands below were run with `@tevm/cli@1.0.0-rc.151`.
+
+```bash
+npm install --global @tevm/cli@1.0.0-rc.151
+cat > Counter.sol <<'SOLIDITY'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Counter {
+    uint256 public number = 42;
+
+    function setNumber(uint256 next) public {
+        number = next;
+    }
+}
+SOLIDITY
+tevm sol Counter.sol --function number --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "sol",
+  "result": {
+    "contract": "Counter",
+    "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "data": "42",
+    "executionGasUsed": "2424"
+  }
+}
+```
+
+`result.data` is the decoded return value. `result.address` is the deterministic address
+the contract was deployed to for this one-shot run.
+
+## Arguments and flags
+
+The command schema in [`packages/tevm-cli/src/commands/sol.tsx`](https://github.com/evmts/tevm-cli/blob/main/packages/tevm-cli/src/commands/sol.tsx) exposes:
+
+| Kind | Syntax | Description |
+| --- | --- | --- |
+| Argument | `<source>` | Path to one Solidity source file. |
+| Flag | `--function <name>` | Function to call after deployment. Required. |
+| Flag | `--contract <name>` | Contract name, when the source defines more than one contract. |
+| Flag | `--args <json>` | Function arguments as a JSON array. Defaults to `[]`. |
+| Flag | `--json` | Emit the stable `{ ok, command, result }` envelope. |
+
+## Passing arguments
+
+`--args` takes a JSON array, so it composes cleanly with `jq` and with shell variables.
+Large integers are accepted as JSON strings:
+
+```bash
+tevm sol Counter.sol --contract Counter --function setNumber --args '["1000"]' --json
+```
+
+## When to reach for something else
+
+- Need the compiled ABI and bytecode as files? Use [`tevm compile`](/cli/compile).
+- Need the contract to persist across several commands? Deploy it into a session with
+  [`tevm deploy`](/cli/deploy) and a `--session` name.
+- Need to call an already-deployed contract? Use [`tevm read-contract`](/cli/read-contract)
+  or [`tevm contract`](/cli/contract).
+
+## Neighbours
+
+[Solidity guide](/guides/solidity) · [`tevm compile`](/cli/compile) · [`tevm deploy`](/cli/deploy)

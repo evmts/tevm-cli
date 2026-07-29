@@ -1,0 +1,52 @@
+---
+title: What is the Tevm CLI?
+description: An in-process Ethereum CLI with persistent forks, readable traces, and typed JSON output.
+---
+
+# Tevm CLI
+
+`@tevm/cli` is an **in-process Ethereum command line**. It runs a full EVM inside the
+CLI process — no Docker container, no background node, no `anvil` to babysit — and
+exposes node actions, contract calls, state manipulation, and Solidity compilation as
+ordinary shell commands.
+
+`tevm-run` is its sibling: a Bun-based runner that executes a TypeScript file with the
+Tevm Solidity bundler already wired in, so a script can `import` a `.sol` file directly.
+
+```bash
+npm install --global @tevm/cli
+tevm session mainnet --fork https://mainnet.optimism.io --json
+tevm get-balance --address vitalik.eth --session mainnet --run --json
+```
+
+## Why it exists
+
+Most Ethereum tooling makes you choose between a REPL and a daemon. Tevm CLI is neither:
+
+- **No process to manage.** Every command spins up an EVM in-process, applies your
+  session's saved state, runs, and exits. There is nothing to start or kill.
+- **Persistent, named sessions.** `tevm session <name>` writes a fork URL, an optional
+  pinned block, and accumulated state to disk. Subsequent commands reload it, so a
+  sequence of `set-code`, `call`, `mine` behaves like one continuous chain.
+- **Forks that are reproducible.** Pin a block with `--fork-block` and the same command
+  returns the same answer next week.
+- **Typed JSON for agents and CI.** `--json` switches every command to a stable
+  `{ ok, command, result, session }` envelope, and suppresses the interactive Ink editor
+  so a script never hangs waiting for a keystroke.
+- **Solidity without a framework.** `tevm compile`, `tevm sol`, and `tevm deploy` take
+  you from a `.sol` file to a return value without a `foundry.toml` or a `hardhat.config`.
+
+## Two packages
+
+| Package | Binary | Runtime | Use it for |
+| --- | --- | --- | --- |
+| [`@tevm/cli`](/getting-started#install-tevmcli) | `tevm` | Node.js ≥ 24 | Shell-driven EVM work: forks, calls, state, compilation, a local JSON-RPC server. |
+| [`tevm-run`](/run) | `tevm-run` | Bun ≥ 1.0 | Executing a TypeScript script that imports Solidity contracts directly. |
+
+## Where to go next
+
+- [Getting started](/getting-started) — install, first session, first call.
+- [Sessions and forks](/guides/sessions) — the model that makes the CLI stateful.
+- [Scripting with JSON output](/guides/json-output) — the `--json` envelope, for CI and agents.
+- [CLI reference](/cli) — every command, with a runnable example and its real output.
+- [How this repo relates to Tevm](/ecosystem) — where `@tevm/cli` sits among the Tevm repos.

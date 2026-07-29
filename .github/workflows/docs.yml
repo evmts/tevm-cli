@@ -1,0 +1,100 @@
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'packages/**'
+      - '.github/workflows/docs.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'packages/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs site
+        run: pnpm docs:build
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-dist
+          path: docs/dist/public
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Vercel
+    needs: build
+    runs-on: ubuntu-latest
+    # Deploys only from main, and only when the Vercel credentials are configured.
+    if: github.event_name != 'pull_request' && github.repository == 'evmts/tevm-cli'
+    environment:
+      name: docs
+      url: https://cli.tevm.sh
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs site
+        run: pnpm docs:build
+
+      - name: Deploy to Vercel
+        run: |
+          npx --yes vercel@latest deploy docs/dist/public \
+            --prod \
+            --yes \
+            --archive=tgz \
+            --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

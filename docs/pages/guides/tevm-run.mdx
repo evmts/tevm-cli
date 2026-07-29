@@ -1,0 +1,170 @@
+---
+title: Scripting with tevm-run
+description: Write a TypeScript script that imports a Solidity contract directly and runs it on an in-process EVM.
+---
+
+# Scripting with tevm-run
+
+The CLI is great until your logic outgrows a shell pipeline. At that point you want a real
+program — loops, conditionals, typed values — without paying for a build step.
+[`tevm-run`](/run) is that: Bun, plus the Tevm Solidity plugin preloaded, so a `.ts` file
+can `import` a `.sol` file and get a typed contract back.
+
+## A complete example
+
+Three files, no config. Start with the contract — note the `.s.sol` extension, which tells
+the plugin to emit deployable bytecode as well as the ABI:
+
+```solidity
+// Counter.s.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Counter {
+    uint256 public number;
+
+    function setNumber(uint256 next) public {
+        number = next;
+    }
+}
+```
+
+Then the script:
+
+```ts
+// script.ts
+import { createMemoryClient } from 'tevm'
+import { Counter } from './Counter.s.sol'
+
+const client = createMemoryClient()
+
+const { createdAddress } = await client.tevmDeploy(Counter.deploy())
+await client.tevmMine()
+
+const counter = Counter.withAddress(createdAddress!)
+
+await client.tevmContract({ ...counter.write.setNumber(42n), addToBlockchain: true })
+
+const value = await client.readContract(counter.read.number())
+
+console.log('address:', createdAddress)
+console.log('number():', value)
+```
+
+Then run it:
+
+```bash
+bun add tevm @tevm/bun-plugin
+bunx tevm-run ./script.ts
+```
+
+```text
+address: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+number(): 42n
+```
+
+`Counter` is fully typed. `Counter.deploy()`, `counter.write.setNumber(42n)`, and
+`counter.read.number()` all check the ABI at compile time, and passing a `string` where a
+`uint256` belongs is a type error rather than a runtime revert.
+
+## What just happened
+
+`tevm-run ./script.ts` runs `bun run --config=<generated bunfig> --install=fallback ./script.ts`.
+The config preloads `@tevm/bun-plugin`, which compiles the `.sol` import on the fly, and
+sets `install.auto = "fallback"` so missing imports are fetched rather than fatal.
+
+You will see a `Unable to find tevm.config.json. Using default config.` warning if you have
+no `tevm.config.json`. That is informational — the default compiler settings are used.
+
+## Passing arguments
+
+`tevm-run` has no flags of its own. Everything after the script path goes to the script:
+
+```bash
+bunx tevm-run ./script.ts --rpc https://mainnet.optimism.io 128000000
+```
+
+```ts
+// script.ts
+import { parseArgs } from 'node:util'
+
+const { values, positionals } = parseArgs({
+	args: Bun.argv.slice(2),
+	options: { rpc: { type: 'string' } },
+	allowPositionals: true,
+})
+
+const rpcUrl = values.rpc ?? 'https://mainnet.optimism.io'
+const blockNumber = positionals[0] ? BigInt(positionals[0]) : undefined
+
+console.log('rpc:', rpcUrl)
+console.log('block:', blockNumber)
+```
+
+## Forking inside a script
+
+The same fork you would get from `tevm session --fork`, but with the whole client API
+available:
+
+```ts
+import { createMemoryClient, http } from 'tevm'
+import { optimism } from 'tevm/common'
+
+const client = createMemoryClient({
+	common: optimism,
+	fork: {
+		transport: http('https://mainnet.optimism.io')({}),
+		blockTag: 128000000n,
+	},
+})
+
+const weth = '0x4200000000000000000000000000000000000006' as const
+
+const balance = await client.getBalance({ address: weth })
+const blockNumber = await client.getBlockNumber()
+
+console.log(`WETH balance: ${balance}`)
+console.log(`forked at:    ${blockNumber}`)
+```
+
+Pin `blockTag`. An unpinned fork makes the script's output depend on when you ran it.
+
+## Embedding the runner
+
+`run` is importable, so a build script can invoke `tevm-run` without shelling out to the
+binary:
+
+```ts
+import { run } from 'tevm-run'
+
+const scripts = ['./scripts/deploy.ts', './scripts/verify.ts']
+
+for (const script of scripts) {
+	try {
+		await run([script])
+		console.log(`${script}: ok`)
+	} catch (error) {
+		const cause = (error as { cause?: { exitCode?: number } }).cause
+		console.error(`${script}: failed with code ${cause?.exitCode ?? 'unknown'}`)
+		process.exitCode = 1
+	}
+}
+```
+
+See the [API reference](/run/api) for `run`, `parseArgs`, `resolveConfigPath`, and
+`argsSchema`.
+
+## Gotchas
+
+- **Use `.s.sol`.** A plain `.sol` import gives you the ABI but no deploy bytecode, and
+  `Contract.deploy()` will not be there. The resulting type error is not self-explanatory.
+- **`tevm-run` needs Bun.** It shells out to `bun run`; Node is not a substitute. The CLI
+  (`@tevm/cli`) runs on Node if that is what you have.
+- **Mine after deploying.** `tevmDeploy` puts the transaction in the pool; `tevmMine`
+  commits it. Reading before mining returns the pre-deployment state.
+
+## See also
+
+- [tevm-run overview](/run) · [API reference](/run/api)
+- [Solidity: compile, deploy, call](/guides/solidity) — the CLI equivalents
+- [Tevm bundler plugins](https://node.tevm.sh/reference/bundler-plugins)

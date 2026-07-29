@@ -11,3 +11,5 @@ coverage/
 *.tsbuildinfo
 .tevm/
 .tmp-cli-verification/
+.vocs/
+.vercel/

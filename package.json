@@ -11,6 +11,9 @@
 	"scripts": {
 		"build": "pnpm --recursive run build",
 		"changeset": "changeset",
+		"docs": "pnpm --filter @tevm/cli-docs run dev",
+		"docs:build": "pnpm --filter @tevm/cli-docs run build",
+		"docs:preview": "pnpm --filter @tevm/cli-docs run preview",
 		"format": "biome format . --write",
 		"lint": "biome check .",
 		"release": "pnpm build && changeset publish",

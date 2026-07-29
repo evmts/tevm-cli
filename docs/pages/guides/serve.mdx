@@ -1,0 +1,152 @@
+---
+title: Running a local JSON-RPC server
+description: Use tevm serve to expose an in-process Tevm node over HTTP for viem, ethers, cast, or a frontend.
+---
+
+# Running a local JSON-RPC server
+
+Most `tevm` commands are one-shot: they start an EVM, run, and exit. `tevm serve` is the
+exception. It keeps a Tevm memory client alive and exposes it over HTTP JSON-RPC, so
+anything that speaks Ethereum RPC — viem, ethers, `cast`, a browser wallet, your frontend's
+dev build — can point at it.
+
+Unlike a session, a running server keeps full transaction history for as long as it lives.
+
+## Start it
+
+```bash
+tevm serve --port 8545 --host localhost
+```
+
+Forked against a live network, pinned to a block:
+
+```bash
+tevm serve \
+  --fork https://mainnet.optimism.io \
+  --fork-block-number 128000000 \
+  --port 8545 \
+  --verbose
+```
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--port <number>` | `8545` | Port to listen on. |
+| `--host <string>` | `localhost` | Host to bind to. |
+| `--fork <url>` | — | URL of the network to fork. |
+| `--chain-id <string>` | `900` | Chain id to report. `900` is the Tevm default chain. |
+| `--fork-block-number <string>` | `latest` | Fork block: a decimal number or a block tag. |
+| `--logging-level <string>` | `info` | Node logging level. |
+| `--verbose` | `false` | Log every JSON-RPC request and response. |
+
+Running without `--json` gives you an interactive terminal UI with tabs for `Call`,
+`GetAccount`, `SetAccount`, and a live request log — useful while debugging a frontend
+against the node.
+
+:::warning
+`--host 0.0.0.0` exposes an unauthenticated node with `tevm_setAccount` and friends
+enabled to your whole network. Keep it on `localhost` unless you know exactly who can
+reach the port.
+:::
+
+## Talk to it with viem
+
+```ts
+import { createPublicClient, createTestClient, http, parseEther } from 'viem'
+import { optimism } from 'viem/chains'
+
+const transport = http('http://localhost:8545')
+
+const publicClient = createPublicClient({ chain: optimism, transport })
+const testClient = createTestClient({ chain: optimism, mode: 'anvil', transport })
+
+const account = '0x1000000000000000000000000000000000000001' as const
+
+await testClient.setBalance({ address: account, value: parseEther('100') })
+
+const balance = await publicClient.getBalance({ address: account })
+const blockNumber = await publicClient.getBlockNumber()
+
+console.log(`balance: ${balance}`)
+console.log(`block:   ${blockNumber}`)
+```
+
+## Talk to it with ethers
+
+```ts
+import { JsonRpcProvider, formatEther } from 'ethers'
+
+const provider = new JsonRpcProvider('http://localhost:8545')
+
+const network = await provider.getNetwork()
+const blockNumber = await provider.getBlockNumber()
+const balance = await provider.getBalance('0x1000000000000000000000000000000000000001')
+
+console.log(`chain id: ${network.chainId}`)
+console.log(`block:    ${blockNumber}`)
+console.log(`balance:  ${formatEther(balance)} ETH`)
+```
+
+## Talk to it with curl
+
+The endpoint is plain JSON-RPC 2.0 over `POST /`:
+
+```bash
+curl -s http://localhost:8545 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+```
+
+Tevm's own methods work over the same endpoint:
+
+```bash
+curl -s http://localhost:8545 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc":"2.0","id":1,"method":"tevm_setAccount",
+    "params":[{"address":"0x1000000000000000000000000000000000000001","balance":"0xde0b6b3a7640000"}]
+  }'
+```
+
+Request bodies are capped at 1 MiB. A `tevm_loadState` payload larger than that will be
+rejected — use [`tevm load-state`](/cli/load-state) against a session instead.
+
+## Using it in CI
+
+Start it in the background, wait for it to answer, run your tests, then kill it:
+
+```bash
+set -euo pipefail
+
+tevm serve --port 8545 &
+server_pid=$!
+trap 'kill "$server_pid"' EXIT
+
+for _ in $(seq 1 30); do
+  if curl -sf http://localhost:8545 \
+      -H 'Content-Type: application/json' \
+      -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' >/dev/null; then
+    break
+  fi
+  sleep 1
+done
+
+npm test
+```
+
+Poll for readiness rather than sleeping a fixed interval — a forked start has to reach
+the upstream RPC first, and how long that takes is not yours to predict.
+
+## serve or session?
+
+| | `tevm serve` | `--session` |
+| --- | --- | --- |
+| Process | Long-lived | One per command |
+| Transaction history | Kept | Not persisted |
+| Consumers | Anything speaking JSON-RPC | The `tevm` CLI |
+| Best for | Frontends, test suites, other tooling | Shell scripts, CI steps, one-off queries |
+
+## See also
+
+- [`tevm serve` reference](/cli/serve)
+- [Sessions and forks](/guides/sessions)
+- [Tevm JSON-RPC reference](https://node.tevm.sh/api/json-rpc)

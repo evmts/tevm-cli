@@ -1,0 +1,194 @@
+---
+title: Scripting with JSON output
+description: The stable --json envelope, and how to drive the Tevm CLI from scripts, CI, and agents.
+---
+
+# Scripting with JSON output
+
+The Tevm CLI has two faces. Interactively it renders an Ink terminal UI and, for commands
+that take parameters, opens an editor so you can adjust them before running. Neither is
+useful to a script. `--json` switches to a machine-readable mode and disables the editor,
+so a non-interactive caller can never hang waiting for a keystroke.
+
+## The envelope
+
+Success:
+
+```json
+{
+  "ok": true,
+  "command": "get-account",
+  "result": {
+    "address": "0x1000000000000000000000000000000000000001",
+    "balance": "1000000000000000000",
+    "nonce": "0"
+  },
+  "session": "docs"
+}
+```
+
+Failure:
+
+```json
+{
+  "ok": false,
+  "command": "get-chain-id",
+  "error": {
+    "message": "Failed to create Viem client"
+  }
+}
+```
+
+The shape is stable across every command:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `ok` | `boolean` | Discriminant. Check this first. |
+| `command` | `string` | The command that produced the envelope, kebab-cased. |
+| `result` | `unknown` | Present when `ok` is `true`. Shape is command-specific. |
+| `error.message` | `string` | Present when `ok` is `false`. |
+| `session` | `string` | Present only when a session was in use. |
+
+## Numbers are strings
+
+Every `bigint` is serialized as a decimal **string**, not a JSON number. `1000000000000000000`
+does not survive an IEEE-754 double, so the CLI never emits one. In a consumer, parse
+explicitly:
+
+```ts
+import { z } from 'zod'
+
+const GetAccountResult = z.object({
+	address: z.string(),
+	balance: z.string().transform((value) => BigInt(value)),
+	nonce: z.string().transform((value) => BigInt(value)),
+})
+
+const Envelope = z.discriminatedUnion('ok', [
+	z.object({
+		ok: z.literal(true),
+		command: z.string(),
+		result: GetAccountResult,
+		session: z.string().optional(),
+	}),
+	z.object({
+		ok: z.literal(false),
+		command: z.string(),
+		error: z.object({ message: z.string() }),
+		session: z.string().optional(),
+	}),
+])
+
+export type Envelope = z.infer<typeof Envelope>
+
+export function parseEnvelope(stdout: string): Envelope {
+	return Envelope.parse(JSON.parse(stdout))
+}
+```
+
+## Driving the CLI from Node
+
+A complete, runnable example — no elisions:
+
+```ts
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+
+const execFileAsync = promisify(execFile)
+
+type Success = { ok: true; command: string; result: unknown; session?: string }
+type Failure = { ok: false; command: string; error: { message: string }; session?: string }
+type Envelope = Success | Failure
+
+/**
+ * Run one `tevm` command and return its parsed JSON envelope.
+ *
+ * @throws {Error} If the command reports `ok: false`.
+ */
+async function tevm(args: string[]): Promise<unknown> {
+	// A failed command exits 1, which rejects execFile. The envelope is still on stdout,
+	// so recover it from the error rather than losing `error.message`.
+	const stdout = await execFileAsync('tevm', [...args, '--json'], {
+		env: { ...process.env, TEVM_JSON: 'true' },
+		maxBuffer: 32 * 1024 * 1024,
+	}).then(
+		(result) => result.stdout,
+		(error: { stdout?: string; message: string }) => {
+			if (typeof error.stdout === 'string' && error.stdout.trim().startsWith('{')) return error.stdout
+			throw error
+		},
+	)
+
+	const envelope = JSON.parse(stdout) as Envelope
+	if (!envelope.ok) {
+		throw new Error(`tevm ${args[0]} failed: ${envelope.error.message}`)
+	}
+	return envelope.result
+}
+
+const address = '0x1000000000000000000000000000000000000001'
+
+await tevm(['session', 'script', '--local'])
+await tevm(['set-account', '--address', address, '--balance', '1000000000000000000', '--session', 'script', '--run'])
+
+const account = (await tevm(['get-account', '--address', address, '--session', 'script', '--run'])) as {
+	balance: string
+	nonce: string
+}
+
+console.log(`balance: ${BigInt(account.balance)} wei`)
+console.log(`nonce:   ${BigInt(account.nonce)}`)
+```
+
+:::warning
+Raise `maxBuffer`. [`tevm dump-state`](/cli/dump-state) on a busy forked session can emit
+several megabytes of JSON, and Node's 1 MB default truncates it into a parse error that
+looks like a CLI bug.
+:::
+
+## Driving the CLI from a shell
+
+`jq` pairs naturally with the envelope. Check `ok` before reading `result`:
+
+```bash
+set -euo pipefail
+
+out=$(tevm get-account \
+  --address 0x1000000000000000000000000000000000000001 \
+  --session docs --run --json)
+
+if [ "$(printf '%s' "$out" | jq -r '.ok')" != "true" ]; then
+  printf '%s' "$out" | jq -r '.error.message' >&2
+  exit 1
+fi
+
+printf '%s' "$out" | jq -r '.result.balance'
+```
+
+## Environment variables
+
+Set these once instead of repeating flags across a script:
+
+| Variable | Equivalent flag |
+| --- | --- |
+| `TEVM_JSON=true` | `--json` |
+| `TEVM_SESSION=<name>` | `--session <name>` |
+| `TEVM_RUN=true` | `--run` |
+| `TEVM_RPC=<url>` | `--rpc <url>` |
+| `TEVM_SESSION_DIR=<dir>` | (no flag) relocate session files |
+
+`--json` and `--session` are parsed ahead of command routing, so both the flag and the
+environment form work on every command, including ones whose own schema does not declare
+them. `--no-json` overrides `TEVM_JSON=true` for a single invocation.
+
+## Exit codes
+
+A failed command exits `1` **and** prints a well-formed `{ ok: false, ... }` envelope on
+stdout, so `set -e` and `execFile`'s rejection both work as you would expect. Still read
+`error.message` when reporting the failure — that is where the revert reason or the
+upstream RPC error ends up, and the exit code alone tells you nothing about which.
+
+## See also
+
+- [Sessions and forks](/guides/sessions)
+- [CLI reference](/cli)

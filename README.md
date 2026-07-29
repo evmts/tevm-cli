@@ -53,6 +53,19 @@ pnpm test
 `tevm-run` itself executes and tests scripts with Bun, so Bun must also be
 installed when working on that package.
 
+## Documentation
+
+The documentation site lives in [`docs/`](./docs) and is built with
+[Vocs](https://vocs.dev) 2.x.
+
+```sh
+pnpm docs        # dev server
+pnpm docs:build  # static build to docs/dist/public
+pnpm docs:preview
+```
+
+It deploys to [cli.tevm.sh](https://cli.tevm.sh/) on Vercel.
+
 ## Releases
 
 Changesets describe version changes. Merges to `main` create or update a

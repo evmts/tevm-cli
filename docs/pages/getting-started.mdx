@@ -1,0 +1,161 @@
+---
+title: Getting started
+description: Install @tevm/cli and tevm-run, create a session, and run your first command.
+---
+
+# Getting started
+
+## Requirements
+
+| Tool | Version | Needed for |
+| --- | --- | --- |
+| Node.js | `^24.0.0` | `@tevm/cli` |
+| Bun | `>=1.0.0` | `tevm-run` |
+
+Both packages declare these in their `engines` field, and npm will warn if you install
+them on an older runtime.
+
+## Install `@tevm/cli`
+
+```bash
+npm install --global @tevm/cli@1.0.0-rc.151
+tevm --version
+```
+
+```text
+1.0.0-rc.151
+```
+
+The published package name is **`@tevm/cli`** and the binary it installs is **`tevm`**.
+Tevm 1.0 is currently a release candidate, so pin the exact version in CI rather than
+tracking `latest`.
+
+Prefer not to install globally? Every example works with a package runner:
+
+```bash
+pnpm dlx @tevm/cli@1.0.0-rc.151 --help
+npx --yes @tevm/cli@1.0.0-rc.151 --help
+```
+
+## Install `tevm-run`
+
+```bash
+npm install --global tevm-run@1.0.0-rc.151
+tevm-run ./script.ts
+```
+
+`tevm-run` is published **unscoped**, as `tevm-run`. It requires Bun and expects `tevm`
+and `@tevm/bun-plugin` to be resolvable — both are peer dependencies, and Bun's
+`install.auto = "fallback"` will fetch them on demand if they are not already installed.
+
+```bash
+bunx tevm-run ./script.ts
+```
+
+## Your first session
+
+The CLI is stateful through *sessions*. Create one, then point later commands at it:
+
+```bash
+tevm session docs --local --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "session",
+  "result": {
+    "version": 1,
+    "name": "docs",
+    "blockNumber": "0",
+    "updatedAt": "2026-07-29T03:38:03.593Z",
+    "path": "/root/.tevm/sessions/docs.json"
+  },
+  "session": "docs"
+}
+```
+
+Now fund an account and read it back. The two commands run in separate processes, but
+they share the `docs` session, so the balance persists:
+
+```bash
+tevm set-account \
+  --address 0x1000000000000000000000000000000000000001 \
+  --balance 1000000000000000000 \
+  --session docs --run --json
+
+tevm get-account \
+  --address 0x1000000000000000000000000000000000000001 \
+  --session docs --run --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "get-account",
+  "result": {
+    "address": "0x1000000000000000000000000000000000000001",
+    "balance": "1000000000000000000",
+    "codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    "isContract": false,
+    "isEmpty": false,
+    "deployedBytecode": "0x",
+    "nonce": "0",
+    "storageRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+  },
+  "session": "docs"
+}
+```
+
+## Your first Solidity call
+
+No session, no project config — one file in, one value out:
+
+```bash
+cat > Counter.sol <<'SOLIDITY'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Counter {
+    uint256 public number = 42;
+
+    function setNumber(uint256 next) public {
+        number = next;
+    }
+}
+SOLIDITY
+
+tevm sol Counter.sol --function number --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "sol",
+  "result": {
+    "contract": "Counter",
+    "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "data": "42",
+    "executionGasUsed": "2424"
+  }
+}
+```
+
+## The three flags that matter
+
+| Flag | Environment variable | Effect |
+| --- | --- | --- |
+| `--json` / `--no-json` | `TEVM_JSON` | Emit the stable `{ ok, command, result, session }` envelope instead of the interactive UI. |
+| `--session <name>` | `TEVM_SESSION` | Load and persist a named local or forked state file. |
+| `--run`, `-r` | `TEVM_RUN` | Run immediately instead of opening the interactive parameter editor. |
+
+`--json` and `--session` are handled before command routing, so they work on **every**
+command even when a command's own schema does not repeat them. `--json` also implies
+direct execution: a JSON invocation never opens the editor, so scripts and agents cannot
+hang on a prompt.
+
+## Next
+
+- [Sessions and forks](/guides/sessions)
+- [Scripting with JSON output](/guides/json-output)
+- [CLI reference](/cli)

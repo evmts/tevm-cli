@@ -1,0 +1,122 @@
+---
+title: tevm-run API reference
+description: The programmatic exports of the tevm-run package.
+---
+
+# tevm-run API reference
+
+`tevm-run` is normally used as a binary, but the pieces it is built from are exported so
+you can embed the runner in a build script or a test harness.
+
+```ts
+import { argsSchema, configPath, parseArgs, run } from 'tevm-run'
+```
+
+All exports are documented with JSDoc in
+[`packages/tevm-run/src`](https://github.com/evmts/tevm-cli/tree/main/packages/tevm-run/src).
+
+## `run`
+
+```ts
+function run(positionals?: string[]): Promise<import('bun').ShellOutput>
+```
+
+Execute a script with Bun using the `tevm-run` bunfig, which preloads the Tevm Solidity
+plugin so the script can `import` `.sol` files directly.
+
+The script's stdout and stderr stream to the calling process. On a non-zero exit, the
+captured output is echoed before throwing, so failures stay readable in CI logs.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `positionals` | `string[]` | `[scriptPath, ...scriptArgs]`. Defaults to the positionals parsed out of `process.argv`, which is what the `tevm-run` binary passes. |
+
+**Returns** — `Promise<ShellOutput>`, the completed Bun shell result.
+
+**Throws** — `Error` if the script exits non-zero. The underlying Bun shell error is
+attached as `cause`, so `err.cause.exitCode`, `err.cause.stdout`, and `err.cause.stderr`
+are available.
+
+```ts
+import { run } from 'tevm-run'
+
+try {
+	await run(['./scripts/deploy.ts', '--network', 'optimism'])
+	console.log('deploy script finished')
+} catch (error) {
+	const cause = (error as { cause?: { exitCode?: number } }).cause
+	console.error(`deploy script failed with code ${cause?.exitCode ?? 'unknown'}`)
+	process.exit(1)
+}
+```
+
+## `parseArgs`
+
+```ts
+function parseArgs(rawArgs: string[]): { values: Record<string, never>; positionals: string[] }
+```
+
+Split a raw `process.argv` into the script path and the arguments forwarded to it. The Bun
+executable and the `tevm-run` entry point are stripped, so the returned `positionals` start
+at the script path.
+
+**Throws** — `Error` if no script path follows `tevm-run`; `TypeError` if an unrecognised
+`--flag` is present, because [`argsSchema`](#argsschema) is strict.
+
+```ts
+import { parseArgs } from 'tevm-run'
+
+const { positionals } = parseArgs(['/bin/bun', '/usr/local/bin/tevm-run', './script.ts', 'alice'])
+console.log(positionals)
+// [ './script.ts', 'alice' ]
+```
+
+## `configPath`
+
+```ts
+const configPath: string
+```
+
+Absolute path to the `bunfig.toml` that `tevm-run` passes to `bun run --config`. Useful if
+you want to invoke Bun yourself but keep the Tevm plugin preload:
+
+```ts
+import { configPath } from 'tevm-run'
+import { $ } from 'bun'
+
+await $`bun test --config=${configPath}`
+```
+
+## `argsSchema`
+
+```ts
+const argsSchema: { options: Record<string, never>; strict: true; allowPositionals: true }
+```
+
+The schema handed to `node:util`'s `parseArgs`. `tevm-run` has no flags of its own, so it
+declares no options, allows positionals, and stays strict.
+
+```ts
+import { parseArgs } from 'node:util'
+import { argsSchema } from 'tevm-run'
+
+const args = parseArgs({ ...argsSchema, args: ['bun', 'tevm-run', './script.ts', 'alice'] })
+console.log(args.positionals)
+// [ 'bun', 'tevm-run', './script.ts', 'alice' ]
+```
+
+Note the difference from `tevm-run`'s own `parseArgs`: the raw `node:util` call keeps the
+leading `bun` and `tevm-run` entries, while `tevm-run`'s wrapper strips them.
+
+## Composing them
+
+```ts
+import { parseArgs, run } from 'tevm-run'
+
+const { positionals } = parseArgs(process.argv)
+await run(positionals)
+```
+
+That is, in full, what the `tevm-run` binary does.

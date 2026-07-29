@@ -1,0 +1,82 @@
+# Tevm CLI
+
+The Tevm CLI exposes rc.151 node actions, contract tools, state controls, and Solidity compilation as shell commands. Reach for it when a one-off command or script is more direct than creating a JavaScript client.
+
+## Install and create a local session
+
+```bash
+npm install --global @tevm/cli@1.0.0-rc.151
+tevm --version
+tevm session docs --local --json
+```
+
+```text
+1.0.0-rc.151
+{
+  "ok": true,
+  "command": "session",
+  "result": {
+    "version": 1,
+    "name": "docs"
+  },
+  "session": "docs"
+}
+```
+
+A named session reloads and persists local state between commands. Use `--run` to skip the interactive editor and `--json` for the stable `{ ok, command, result, session }` envelope.
+
+## Global options
+
+| Flag | Environment | Effect |
+| --- | --- | --- |
+| `--json`, `--no-json` | `TEVM_JSON` | Select stable JSON or human output. |
+| `--session <name>` | `TEVM_SESSION` | Load and persist a named local or forked state file. |
+| `--run`, `-r` | `TEVM_RUN` | Execute directly instead of opening the parameter editor. |
+| `--rpc <url>` | `TEVM_RPC` | Fork or query the selected JSON-RPC endpoint. |
+
+## Command reference
+
+| Command | Purpose |
+| --- | --- |
+| [`tevm session`](/cli/session) | Create or inspect a persistent named local/forked session. |
+| [`tevm sol`](/cli/sol) | Compile one Solidity file, deploy it, and call a function. |
+| [`tevm call`](/cli/call) | Execute a raw EVM call against a contract or address. |
+| [`tevm compile`](/cli/compile) | Compile Solidity sources to ABI and bytecode artifacts. |
+| [`tevm contract`](/cli/contract) | Call a contract function through its ABI, with a decoded trace. |
+| [`tevm action create-access-list`](/cli/create-access-list) | Compute the EIP-2930 access list for a call. |
+| [`tevm create-block-filter`](/cli/create-block-filter) | Create a filter that tracks new blocks. |
+| [`tevm create-contract-event-filter`](/cli/create-contract-event-filter) | Create an event filter scoped to one contract ABI event. |
+| [`tevm create-event-filter`](/cli/create-event-filter) | Create a raw topic-based event filter. |
+| [`tevm deploy`](/cli/deploy) | Deploy bytecode into the session and persist the deployed contract. |
+| [`tevm dump-state`](/cli/dump-state) | Export the full EVM state as JSON. |
+| [`tevm estimate-fees-per-gas`](/cli/estimate-fees-per-gas) | Estimate current base and priority fees per gas. |
+| [`tevm estimate-gas`](/cli/estimate-gas) | Estimate the gas a call would consume. |
+| [`tevm get-account`](/cli/get-account) | Read an account’s balance, nonce, code, and storage root. |
+| [`tevm action get-balance`](/cli/get-balance) | Read an account balance. |
+| [`tevm get-block`](/cli/get-block) | Fetch a block by number, hash, or tag. |
+| [`tevm get-block-number`](/cli/get-block-number) | Read the current block height. |
+| [`tevm get-bytecode`](/cli/get-bytecode) | Read the deployed bytecode at an address. |
+| [`tevm get-chain-id`](/cli/get-chain-id) | Read the chain id. |
+| [`tevm get-ens-address`](/cli/get-ens-address) | Resolve an ENS name to an address. |
+| [`tevm get-ens-name`](/cli/get-ens-name) | Reverse-resolve an address to an ENS name. |
+| [`tevm get-ens-text`](/cli/get-ens-text) | Read an ENS text record. |
+| [`tevm get-gas-price`](/cli/get-gas-price) | Read the current gas price. |
+| [`tevm get-storage-at`](/cli/get-storage-at) | Read a raw storage slot. |
+| [`tevm get-transaction`](/cli/get-transaction) | Fetch a transaction by hash. |
+| [`tevm load-state`](/cli/load-state) | Import a previously dumped EVM state. |
+| [`tevm mine`](/cli/mine) | Mine one or more blocks. |
+| [`tevm multicall`](/cli/multicall) | Batch several contract reads into one call. |
+| [`tevm read-contract`](/cli/read-contract) | Read a view/pure contract function through its ABI. |
+| [`tevm action send-raw-transaction`](/cli/send-raw-transaction) | Broadcast a signed raw transaction. |
+| [`tevm serve`](/cli/serve) | Start a persistent Tevm JSON-RPC server. |
+| [`tevm set-account`](/cli/set-account) | Set an account’s balance, nonce, or code. |
+| [`tevm set-code`](/cli/set-code) | Overwrite the deployed bytecode at an address. |
+| [`tevm set-nonce`](/cli/set-nonce) | Overwrite an account nonce. |
+| [`tevm set-storage-at`](/cli/set-storage-at) | Overwrite a raw storage slot. |
+| [`tevm action simulate-calls`](/cli/simulate-calls) | Simulate a batch of calls without committing state. |
+
+`tevm create`, `tevm generate`, and `tevm tsc` ship in `1.0.0-rc.151` but are not documented here: their non-interactive examples do not currently produce reproducible output, so no verified page exists yet. Run `tevm create --help`, `tevm generate --help`, or `tevm tsc --help` for their current schemas.
+
+## Neighbours
+
+[Getting started](/getting-started) · [Sessions and forks](/guides/sessions) · [tevm-run](/run) · [Tevm Node JSON-RPC](https://node.tevm.sh/api/json-rpc) · [Tevm actions](https://node.tevm.sh/reference/actions)

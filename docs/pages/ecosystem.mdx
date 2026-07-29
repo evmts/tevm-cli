@@ -1,0 +1,68 @@
+---
+title: How this repo relates to Tevm
+description: Where evmts/tevm-cli sits among the Tevm repositories and packages.
+---
+
+# How this repo relates to Tevm
+
+## The split
+
+Tevm used to be a single monorepo, [`evmts/tevm-monorepo`](https://github.com/evmts/tevm-monorepo),
+containing both the EVM library packages and the app-shaped tools built on top of them.
+The app-shaped tools were extracted into
+[`evmts/tevm-cli`](https://github.com/evmts/tevm-cli) — this repository — with their Git
+history intact.
+
+The split follows one line: **libraries stay in the monorepo, applications live here.**
+A library is consumed by `import`; an application ships a binary and a user interface.
+`@tevm/cli` ships the `tevm` binary and an Ink terminal UI. `tevm-run` ships the
+`tevm-run` binary. Neither is something you would depend on from application code.
+
+The practical benefit is release cadence. This repository consumes the core Tevm
+packages as ordinary published npm dependencies, so the CLI can cut a release without
+waiting on the monorepo, and vice versa.
+
+## What lives where
+
+| Repository | Contains | Docs |
+| --- | --- | --- |
+| [`evmts/tevm-monorepo`](https://github.com/evmts/tevm-monorepo) | `tevm`, `@tevm/node`, `@tevm/actions`, `@tevm/memory-client`, `@tevm/state`, the bundler plugins, and the rest of the core library packages. | [tevm.sh](https://tevm.sh), [node.tevm.sh](https://node.tevm.sh) |
+| [`evmts/tevm-cli`](https://github.com/evmts/tevm-cli) | `@tevm/cli` (the `tevm` binary) and `tevm-run`. | [cli.tevm.sh](https://cli.tevm.sh) — this site |
+
+## What this repo depends on
+
+`@tevm/cli` is a thin, ergonomic shell over the core packages. Nearly every command maps
+onto a Tevm action:
+
+| CLI command | Underlying package |
+| --- | --- |
+| `tevm call`, `tevm contract`, `tevm deploy`, `tevm mine` | [`@tevm/actions`](https://node.tevm.sh/reference/actions) |
+| `tevm get-account`, `tevm set-account`, `tevm dump-state`, `tevm load-state` | [`@tevm/actions`](https://node.tevm.sh/reference/actions) state actions |
+| `tevm serve` | [`@tevm/memory-client`](https://node.tevm.sh/reference/memory-client) plus the Tevm HTTP server |
+| `tevm compile`, `tevm sol` | [`@tevm/base-bundler`](https://node.tevm.sh/reference/bundler), `@tevm/bundler-cache`, `solc` |
+| `tevm get-ens-*`, `tevm multicall`, `tevm read-contract` | [viem](https://viem.sh) against the session's fork |
+
+`tevm-run` depends on [`@tevm/bun-plugin`](https://node.tevm.sh/reference/bundler-plugins),
+which is what lets a script `import` a `.sol` file directly.
+
+This means the semantics of a CLI command are the semantics of the underlying action.
+When a reference page here is thin on the behaviour of, say, `tevmCall`, the authoritative
+description is in the [Tevm Node docs](https://node.tevm.sh).
+
+## Versioning
+
+`@tevm/cli` and `tevm-run` are versioned together in this repository and currently track
+the Tevm 1.0 release candidates (`1.0.0-rc.151` at the time of writing). Changesets drive
+version bumps: merging to `main` opens or updates a release pull request, and merging that
+pull request publishes both packages to npm with provenance.
+
+The core Tevm packages this repository consumes are on their own `1.0.0-next.*` line and
+move independently. Pin exact versions in CI.
+
+## Choosing a tool
+
+- **A one-off query or a shell script** → `@tevm/cli`. See [Getting started](/getting-started).
+- **A TypeScript program that imports Solidity** → `tevm-run`. See [Scripting with tevm-run](/guides/tevm-run).
+- **An application, a test suite, or a browser bundle** → the `tevm` library directly. See
+  [node.tevm.sh](https://node.tevm.sh).
+- **An HTTP JSON-RPC endpoint for another tool** → [`tevm serve`](/guides/serve).

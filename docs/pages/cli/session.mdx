@@ -1,0 +1,96 @@
+# tevm session
+
+`tevm session` creates or inspects a named, persistent local state file. Every other
+command accepts `--session <name>` and reloads that file, which is what makes a sequence
+of CLI invocations behave like one continuous chain.
+
+## Working example
+
+The commands below were run with `@tevm/cli@1.0.0-rc.151`.
+
+```bash
+npm install --global @tevm/cli@1.0.0-rc.151
+tevm session docs --local --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "session",
+  "result": {
+    "version": 1,
+    "name": "docs",
+    "blockNumber": "0",
+    "updatedAt": "2026-07-29T03:38:03.593Z",
+    "path": "/root/.tevm/sessions/docs.json"
+  },
+  "session": "docs"
+}
+```
+
+Running `tevm session docs --json` again inspects the existing session rather than
+recreating it, and omits `path`:
+
+```json
+{
+  "ok": true,
+  "command": "session",
+  "result": {
+    "version": 1,
+    "name": "docs",
+    "blockNumber": "0",
+    "updatedAt": "2026-07-29T03:38:03.593Z"
+  },
+  "session": "docs"
+}
+```
+
+## Arguments and flags
+
+The command schema in [`packages/tevm-cli/src/commands/session.tsx`](https://github.com/evmts/tevm-cli/blob/main/packages/tevm-cli/src/commands/session.tsx) exposes:
+
+| Kind | Syntax | Description |
+| --- | --- | --- |
+| Argument | `<name>` | Session name. Letters, numbers, dots, underscores, and hyphens only. |
+| Flag | `--fork <url>` | Fork RPC URL stored with a new session. |
+| Flag | `--fork-block <number>` | Pinned fork block number, for reproducible reads. |
+| Flag | `--local` | Create an unforked, in-process EVM session. |
+| Flag | `--json` | Emit the stable `{ ok, command, result, session }` envelope. |
+
+## Where sessions live
+
+Session files are written to `~/.tevm/sessions/<name>.json` with mode `0600`, using an
+atomic write (temp file plus rename) so a crashed command cannot leave a half-written
+state file behind. Set `TEVM_SESSION_DIR` to relocate them — useful for CI, where each
+job should get its own directory:
+
+```bash
+export TEVM_SESSION_DIR="$RUNNER_TEMP/tevm-sessions"
+tevm session ci --local --json
+```
+
+A session file records the fork URL, the pinned fork block, the block height, and the
+dumped account/storage state. Deleting the file resets the chain.
+
+## Forked sessions
+
+```bash
+tevm session optimism \
+  --fork https://mainnet.optimism.io \
+  --fork-block 128000000 \
+  --json
+```
+
+Because `--fork-block` pins the height, `tevm read-contract --session optimism` returns
+the same answer tomorrow as it does today. Omit it and each command forks from the
+chain's current head.
+
+## Notes
+
+- Transaction history is not persisted. The saved block height is restored by mining
+  empty blocks, so the height is stable across commands even though receipts are not.
+- An invalid or future-versioned session file is rejected rather than silently migrated.
+
+## Neighbours
+
+[Sessions and forks guide](/guides/sessions) · [`tevm dump-state`](/cli/dump-state) · [`tevm load-state`](/cli/load-state)

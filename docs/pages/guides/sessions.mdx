@@ -1,0 +1,123 @@
+---
+title: Sessions and forks
+description: How named sessions make a sequence of tevm commands behave like one chain.
+---
+
+# Sessions and forks
+
+Every `tevm` command runs an EVM inside its own short-lived process. Without help, the
+second command would know nothing about the first. **Sessions** are the mechanism that
+carries state between them.
+
+## The model
+
+A session is a JSON file on disk holding four things:
+
+1. the fork RPC URL, if any,
+2. the pinned fork block, if any,
+3. the block height,
+4. a dump of every touched account and storage slot.
+
+`tevm <command> --session <name>` loads that file before running, and writes it back
+afterwards. The effect is a chain that persists across processes without a daemon.
+
+Files live in `~/.tevm/sessions/<name>.json`, written with mode `0600` via a temp file
+plus an atomic rename. Set `TEVM_SESSION_DIR` to move them elsewhere.
+
+## A local chain
+
+```bash
+# Create the session.
+tevm session counter --local --json
+
+# Fund an account.
+tevm set-account \
+  --address 0x1000000000000000000000000000000000000001 \
+  --balance 1000000000000000000 \
+  --session counter --run --json
+
+# Put code at that address.
+tevm set-code \
+  --address 0x1000000000000000000000000000000000000001 \
+  --bytecode 0x6080604052348015600e575f80fd5b50 \
+  --session counter --run --json
+
+# Advance the chain.
+tevm mine --blocks 3 --session counter --run --json
+
+# Read it all back in a fourth process.
+tevm get-account \
+  --address 0x1000000000000000000000000000000000000001 \
+  --session counter --run --json
+```
+
+Each command is a separate process. The balance, the code, and the block height all
+survive because they round-trip through `~/.tevm/sessions/counter.json`.
+
+## A forked chain
+
+```bash
+tevm session optimism \
+  --fork https://mainnet.optimism.io \
+  --fork-block 128000000 \
+  --json
+```
+
+Reads that miss the local state fall through to the fork URL; writes stay local. Because
+the fork block is pinned, the same command produces the same answer next month:
+
+```bash
+tevm get-balance \
+  --address 0x4200000000000000000000000000000000000006 \
+  --session optimism --run --json
+```
+
+Omit `--fork-block` and each command forks from whatever the chain's head happens to be
+at that moment — convenient for exploration, useless for a regression test.
+
+:::tip
+Pin the fork block for anything that runs in CI. An unpinned fork turns a deterministic
+assertion into a flaky one, and the failure will show up weeks later on an unrelated PR.
+:::
+
+## What is not persisted
+
+Transaction receipts and logs are not saved. When a session is reloaded, the recorded
+block height is restored by mining that many empty blocks — so `tevm get-block-number`
+stays consistent, but `tevm get-transaction` will not find a transaction from an earlier
+process. If you need history, keep the chain alive with [`tevm serve`](/guides/serve)
+instead.
+
+## Sessions in CI
+
+Give every job its own session directory so parallel jobs cannot collide, and delete it
+at the end:
+
+```yaml
+- name: EVM checks
+  env:
+    TEVM_SESSION_DIR: ${{ runner.temp }}/tevm-sessions
+    TEVM_JSON: 'true'
+  run: |
+    npx --yes @tevm/cli@1.0.0-rc.151 session ci --fork "$RPC_URL" --fork-block 128000000
+    npx --yes @tevm/cli@1.0.0-rc.151 get-block-number --session ci --run
+```
+
+`TEVM_JSON=true` is the environment equivalent of `--json`, and `TEVM_SESSION` is the
+equivalent of `--session`, so a job can set them once instead of repeating flags.
+
+## Resetting
+
+Deleting the file resets the chain:
+
+```bash
+rm ~/.tevm/sessions/counter.json
+```
+
+To snapshot and restore instead, pair [`tevm dump-state`](/cli/dump-state) with
+[`tevm load-state`](/cli/load-state).
+
+## See also
+
+- [`tevm session` reference](/cli/session)
+- [Scripting with JSON output](/guides/json-output)

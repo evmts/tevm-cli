@@ -1,0 +1,149 @@
+---
+title: 'Solidity: compile, deploy, call'
+description: Go from a .sol file to a return value with tevm sol, tevm compile, and tevm deploy.
+---
+
+# Solidity: compile, deploy, call
+
+The CLI bundles `solc`, so you can go from a Solidity source file to a return value
+without a `foundry.toml` or a `hardhat.config.ts`. There are three levels of ceremony,
+and the right one depends on how long you need the contract to stick around.
+
+Everything below uses this contract:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract Counter {
+    uint256 public number = 42;
+
+    event NumberChanged(uint256 number);
+
+    function setNumber(uint256 next) public {
+        number = next;
+        emit NumberChanged(next);
+    }
+}
+```
+
+## Level 1: one shot
+
+[`tevm sol`](/cli/sol) compiles, deploys, and calls in a single command. Nothing persists;
+nothing is written to disk.
+
+```bash
+tevm sol Counter.sol --function number --json
+```
+
+```json
+{
+  "ok": true,
+  "command": "sol",
+  "result": {
+    "contract": "Counter",
+    "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "data": "42",
+    "executionGasUsed": "2424"
+  }
+}
+```
+
+Arguments go in as a JSON array:
+
+```bash
+tevm sol Counter.sol --function setNumber --args '["1000"]' --json
+```
+
+If the file declares more than one contract, disambiguate with `--contract Counter`.
+
+This is the right tool for checking what a function returns, sanity-checking a gas figure,
+or reproducing a bug report. It is the wrong tool the moment you need two calls against
+the same deployment.
+
+## Level 2: artifacts
+
+[`tevm compile`](/cli/compile) emits ABI and bytecode you can feed to other commands or to
+another toolchain entirely.
+
+```bash
+tevm compile --json
+jq -r '.abi' artifacts/Counter.json > Counter.abi.json
+jq -r '.deployedBytecode' artifacts/Counter.json > Counter.bin
+```
+
+`tevm compile` discovers sources itself; `--watch` recompiles on change, and `--target`
+selects the JS target for generated output (`es2015`, `es2020`, or `esnext`, defaulting to
+`es2020`).
+
+## Level 3: a persistent deployment
+
+To call a contract repeatedly, put it in a [session](/guides/sessions). Two ways:
+
+**Deploy it properly**, running the constructor:
+
+```bash
+tevm session counter --local --json
+
+tevm deploy \
+  --bytecode "$(jq -r '.bytecode' artifacts/Counter.json)" \
+  --abi ./Counter.abi.json \
+  --session counter --run --json
+```
+
+`tevm deploy` persists the deployed bytecode into the session, so the contract is still
+there in the next process.
+
+**Or graft the code on**, skipping the constructor — faster, and lets you choose the
+address:
+
+```bash
+tevm set-code \
+  --address 0x1000000000000000000000000000000000000001 \
+  --bytecode "$(jq -r '.deployedBytecode' artifacts/Counter.json)" \
+  --session counter --run --json
+
+tevm set-storage-at \
+  --address 0x1000000000000000000000000000000000000001 \
+  --index 0x0 --value 0x2a \
+  --session counter --run --json
+```
+
+Note the second command: `set-code` installs *runtime* bytecode, which means the
+constructor never ran and storage is empty. State that a constructor would have
+initialized — here, `number = 42` in slot 0 — has to be written by hand.
+
+Then read it back:
+
+```bash
+tevm read-contract \
+  --address 0x1000000000000000000000000000000000000001 \
+  --abi ./Counter.abi.json \
+  --function-name number \
+  --session counter --run --json
+```
+
+## Reading a trace
+
+For a call that reverts, or one you simply do not understand, `tevm call` with an `--abi`
+renders a decoded call tree instead of raw JSON:
+
+```bash
+tevm call \
+  --to 0x1000000000000000000000000000000000000001 \
+  --data 0x8381f58a \
+  --abi ./Counter.abi.json \
+  --session counter --run
+```
+
+```text
+number() => 42 [gas 2281]
+```
+
+Nested calls are indented, gas is annotated per frame, and a reverting frame is tagged
+`REVERT <reason>`. Passing `--json` instead gives you the structured trace.
+
+## See also
+
+- [`tevm sol`](/cli/sol) · [`tevm compile`](/cli/compile) · [`tevm deploy`](/cli/deploy) · [`tevm call`](/cli/call)
+- [Scripting with tevm-run](/guides/tevm-run) — importing `.sol` files straight into TypeScript

@@ -1,0 +1,62 @@
+---
+title: tevm-run
+description: A Bun wrapper that runs TypeScript scripts which import Solidity contracts directly.
+---
+
+# tevm-run
+
+`tevm-run` runs a TypeScript file with Bun, with the Tevm Solidity plugin already
+preloaded. That one detail is the whole point: inside a `tevm-run` script you can
+
+```ts
+import { Counter } from './Counter.s.sol'
+```
+
+and get a fully typed contract object — ABI, bytecode, and typed `read`/`write` helpers —
+with no build step, no codegen directory, and no `artifacts/` to keep in sync.
+
+```bash
+npm install --global tevm-run
+tevm-run ./script.ts
+```
+
+## What it actually does
+
+`tevm-run ./script.ts arg1 arg2` shells out to:
+
+```bash
+bun run --config=<tevm-run>/bunfig.toml --install=fallback ./script.ts arg1 arg2
+```
+
+That bundled `bunfig.toml` does two things:
+
+1. **Preloads `plugins.js`**, which registers [`@tevm/bun-plugin`](https://node.tevm.sh/reference/bundler-plugins).
+   This is what teaches Bun's module resolver to compile `.sol` imports.
+2. **Sets `install.auto = "fallback"`**, so an import that is not in the local
+   `node_modules` is fetched on demand instead of crashing the script.
+
+`tevm-run` itself takes **no flags**. Everything after the script path is forwarded to
+the script verbatim, and an unrecognised flag is a hard error rather than a silent drop.
+
+## Requirements
+
+| Requirement | Version |
+| --- | --- |
+| Bun | `>=1.0.0` |
+| `tevm` | `>=1.0.0` (peer dependency) |
+| `@tevm/bun-plugin` | `^1.0.0-next.148` (peer dependency) |
+
+Both peers can be resolved by the fallback install rather than being installed up front,
+which is why a one-file script in an empty directory works.
+
+## The `.s.sol` convention
+
+Name Solidity files you intend to import from a script `*.s.sol`. The plugin treats that
+suffix as "script contract" and emits deploy bytecode along with the ABI, which is what
+`Contract.deploy(...)` needs. A plain `.sol` import gives you the ABI but no deployable
+artifact, and the resulting failure is not obvious.
+
+## Next
+
+- [Scripting with tevm-run](/guides/tevm-run) — a complete worked example
+- [API reference](/run/api) — the importable `run`, `parseArgs`, `configPath`, `argsSchema`
