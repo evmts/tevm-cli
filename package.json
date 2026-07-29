@@ -1,0 +1,36 @@
+{
+	"name": "tevm-cli",
+	"version": "0.0.0",
+	"private": true,
+	"description": "The TEVM command-line interface and tevm-run script runner",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/evmts/tevm-cli.git"
+	},
+	"scripts": {
+		"build": "pnpm --recursive run build",
+		"changeset": "changeset",
+		"format": "biome format . --write",
+		"lint": "biome check .",
+		"release": "pnpm build && changeset publish",
+		"test": "pnpm --recursive run test",
+		"typecheck": "pnpm --recursive run typecheck"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.15",
+		"@changesets/changelog-github": "^0.7.0",
+		"@changesets/cli": "^2.31.0",
+		"@tevm/tsconfig": "^1.0.0-next.142",
+		"typescript": "^6.0.3"
+	},
+	"engines": {
+		"node": "^24.0.0"
+	},
+	"packageManager": "pnpm@9.15.9",
+	"pnpm": {
+		"overrides": {
+			"viem": "2.37.12"
+		}
+	}
+}

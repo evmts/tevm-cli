@@ -1,0 +1,7 @@
+{
+	"extends": "@tevm/tsconfig/base.json",
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"files": []
+}

@@ -1,4 +1,9 @@
-import type { Server as HttpServer } from 'node:http'
+import {
+	createServer as createHttpServer,
+	type Server as HttpServer,
+	type IncomingMessage,
+	type ServerResponse,
+} from 'node:http'
 import {
 	anvil,
 	arbitrum,
@@ -21,11 +26,133 @@ import {
 } from '@tevm/common'
 import { http } from '@tevm/jsonrpc'
 import { createMemoryClient, type MemoryClient } from '@tevm/memory-client'
-import { createServer } from '@tevm/server'
 import type { BlockTag } from '@tevm/utils'
 import { createLoggingRequestProxy } from '../stores/logStore.js'
 
 const blockTags = new Set<BlockTag>(['earliest', 'finalized', 'latest', 'pending', 'safe'])
+const maxRequestBodySize = 1024 * 1024
+
+type JsonRpcRequest = {
+	jsonrpc?: '2.0'
+	id?: string | number | null
+	method: string
+	params?: unknown
+}
+
+const writeJson = (response: ServerResponse, status: number, value: unknown) => {
+	response.writeHead(status, { 'Content-Type': 'application/json' })
+	response.end(JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item)))
+}
+
+const readRequestBody = (request: IncomingMessage) =>
+	new Promise<string>((resolve, reject) => {
+		let body = ''
+		request.setEncoding('utf8')
+		request.on('data', (chunk: string) => {
+			body += chunk
+			if (Buffer.byteLength(body, 'utf8') > maxRequestBodySize) {
+				reject(new Error('Request body exceeds 1 MiB'))
+				request.destroy()
+			}
+		})
+		request.on('end', () => resolve(body))
+		request.on('error', reject)
+	})
+
+const isJsonRpcRequest = (value: unknown): value is JsonRpcRequest =>
+	typeof value === 'object' &&
+	value !== null &&
+	'method' in value &&
+	typeof (value as { method?: unknown }).method === 'string'
+
+const handleJsonRpcRequest = async (client: MemoryClient, request: JsonRpcRequest) => {
+	try {
+		const result = await client.request({
+			method: request.method as any,
+			...(request.params === undefined ? {} : { params: request.params as any }),
+		})
+		return {
+			jsonrpc: '2.0' as const,
+			...(request.id === undefined ? {} : { id: request.id }),
+			method: request.method,
+			result,
+		}
+	} catch (error) {
+		const code =
+			typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'number'
+				? error.code
+				: -32603
+		return {
+			jsonrpc: '2.0' as const,
+			...(request.id === undefined ? {} : { id: request.id }),
+			method: request.method,
+			error: {
+				code,
+				message: error instanceof Error ? error.message : String(error),
+			},
+		}
+	}
+}
+
+const createJsonRpcServer = (client: MemoryClient) =>
+	createHttpServer(async (request, response) => {
+		if (request.method !== 'POST') {
+			response.writeHead(405, { Allow: 'POST' })
+			response.end()
+			return
+		}
+
+		try {
+			const parsed = JSON.parse(await readRequestBody(request)) as unknown
+			if (Array.isArray(parsed)) {
+				if (parsed.length === 0 || !parsed.every(isJsonRpcRequest)) {
+					writeJson(response, 400, {
+						jsonrpc: '2.0',
+						id: null,
+						method: 'unknown',
+						error: { code: -32600, message: 'Invalid Request' },
+					})
+					return
+				}
+				const results = await Promise.all(parsed.map((item) => handleJsonRpcRequest(client, item)))
+				const responses = results.filter((_, index) => parsed[index]?.id !== undefined)
+				if (responses.length === 0) {
+					response.writeHead(204)
+					response.end()
+					return
+				}
+				writeJson(response, 200, responses)
+				return
+			}
+			if (!isJsonRpcRequest(parsed)) {
+				writeJson(response, 400, {
+					jsonrpc: '2.0',
+					id: null,
+					method: 'unknown',
+					error: { code: -32600, message: 'Invalid Request' },
+				})
+				return
+			}
+
+			const result = await handleJsonRpcRequest(client, parsed)
+			if (parsed.id === undefined) {
+				response.writeHead(204)
+				response.end()
+				return
+			}
+			writeJson(response, 'error' in result ? 400 : 200, result)
+		} catch (error) {
+			writeJson(response, 400, {
+				jsonrpc: '2.0',
+				id: null,
+				method: 'unknown',
+				error: {
+					code: error instanceof SyntaxError ? -32700 : -32603,
+					message: error instanceof Error ? error.message : String(error),
+				},
+			})
+		}
+	})
 
 const parseForkBlock = (forkBlockNumber: string): bigint | BlockTag => {
 	try {
@@ -102,7 +229,7 @@ export async function initializeServer({
 	}
 
 	// Create and start the server
-	const server = createServer(client as any) as unknown as HttpServer
+	const server = createJsonRpcServer(client)
 
 	// Handle graceful shutdown
 	const handleShutdown = () => {

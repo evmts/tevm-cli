@@ -225,7 +225,27 @@ export default function Multicall({ options }: Props) {
 
 		// Execute the action
 		executeAction: async (client: any, params: any): Promise<any> => {
-			return await client.multicall(params)
+			try {
+				return await client.multicall(params)
+			} catch (error) {
+				// Fresh local TEVM sessions do not have Multicall3 deployed at the
+				// canonical address. Preserve the command's read-only behavior by
+				// executing the calls individually when that contract is unavailable.
+				const { contracts, allowFailure, multicallAddress: _multicallAddress, ...block } = params
+				if (!Array.isArray(contracts)) {
+					throw error
+				}
+				return await Promise.all(
+					contracts.map(async (contract) => {
+						try {
+							return await client.readContract({ ...contract, ...block })
+						} catch (readError) {
+							if (!allowFailure) throw readError
+							return null
+						}
+					}),
+				)
+			}
 		},
 	})
 

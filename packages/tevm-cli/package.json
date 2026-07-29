@@ -4,10 +4,16 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/evmts/tevm-monorepo.git",
-		"directory": "cli"
+		"url": "git+https://github.com/evmts/tevm-cli.git",
+		"directory": "packages/tevm-cli"
 	},
-	"bin": "dist/cli.js",
+	"homepage": "https://cli.tevm.sh/",
+	"bugs": {
+		"url": "https://github.com/evmts/tevm-cli/issues"
+	},
+	"bin": {
+		"tevm": "dist/cli.js"
+	},
 	"type": "module",
 	"main": "dist/cli.js",
 	"module": "dist/cli.js",
@@ -21,7 +27,11 @@
 		"./package.json": "./package.json"
 	},
 	"engines": {
-		"node": ">=16"
+		"node": "^24.0.0"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
 	},
 	"scripts": {
 		"build": "pnpm run build:app",
@@ -30,25 +40,24 @@
 		"format": "biome format . --write",
 		"lint": "biome check . --write --unsafe",
 		"lint:check": "biome check . --verbose",
-		"lint:deps": "bunx depcheck",
-		"test": "prettier --check . && xo && ava",
-		"test:coverage": "pnpm run build:app && vitest run --coverage",
-		"test:run": "vitest run"
+		"test": "pnpm run build && vitest run",
+		"test:coverage": "pnpm run build && vitest run --coverage",
+		"test:run": "vitest run",
+		"typecheck": "tsc --noEmit --skipLibCheck"
 	},
 	"files": [
 		"dist"
 	],
 	"dependencies": {
 		"@tanstack/react-query": "^5.100.11",
-		"@tevm/actions": "workspace:^",
-		"@tevm/base-bundler": "workspace:^",
-		"@tevm/bundler-cache": "workspace:^",
-		"@tevm/common": "workspace:^",
-		"@tevm/config": "workspace:^",
-		"@tevm/jsonrpc": "workspace:^",
-		"@tevm/memory-client": "workspace:^",
-		"@tevm/server": "workspace:^",
-		"@tevm/utils": "workspace:^",
+		"@tevm/actions": "^1.0.0-next.149",
+		"@tevm/base-bundler": "^1.0.0-next.149",
+		"@tevm/bundler-cache": "^1.0.0-next.148",
+		"@tevm/common": "^1.0.0-next.148",
+		"@tevm/config": "^1.0.0-next.148",
+		"@tevm/jsonrpc": "^1.0.0-next.148",
+		"@tevm/memory-client": "^1.0.0-next.148",
+		"@tevm/utils": "^1.0.0-next.148",
 		"@types/glob": "^9.0.0",
 		"@types/json-bigint": "^1.0.4",
 		"effect": "3.21.2",
@@ -64,39 +73,20 @@
 		"pastel": "^4.0.1",
 		"react": "^19.2.6",
 		"solc": "^0.8.35",
-		"viem": "^2.49.3",
+		"viem": "2.37.12",
 		"zod": "^4.4.3",
 		"zustand": "^5.0.13"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^8.1.0",
+		"@tevm/tsconfig": "^1.0.0-next.142",
 		"@types/ink-big-text": "^1.2.4",
 		"@types/ink-gradient": "^2.0.4",
+		"@types/node": "^24.10.9",
 		"@types/react": "^19.2.14",
-		"@vdemedes/prettier-config": "^2.0.1",
-		"ava": "^8.0.1",
-		"chalk": "^5.6.2",
 		"ink-testing-library": "^4.0.0",
-		"prettier": "^3.8.3",
 		"tsx": "^4.22.2",
 		"typescript": "^6.0.3",
-		"xo": "^2.0.2"
-	},
-	"ava": {
-		"extensions": {
-			"ts": "module",
-			"tsx": "module"
-		},
-		"nodeArguments": [
-			"--import=tsx"
-		]
-	},
-	"xo": {
-		"extends": "xo-react",
-		"prettier": true,
-		"rules": {
-			"react/prop-types": "off"
-		}
-	},
-	"prettier": "@vdemedes/prettier-config"
+		"vitest": "^4.1.6"
+	}
 }

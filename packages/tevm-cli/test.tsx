@@ -1,10 +1,10 @@
-import test from 'ava'
-import chalk from 'chalk'
 import { render } from 'ink-testing-library'
-import Index from './source/commands/index.js'
+import { expect, it } from 'vitest'
+import Index from './src/commands/index.js'
 
-test('greet user', (t) => {
-	const { lastFrame } = render(<Index options={{ name: 'Jane' }} />)
+it('renders the CLI welcome screen', () => {
+	const { lastFrame } = render(<Index />)
 
-	t.is(lastFrame(), `Hello, ${chalk.green('Jane')}`)
+	expect(lastFrame()).toContain('TEVM CLI')
+	expect(lastFrame()).toContain('tevm --help')
 })

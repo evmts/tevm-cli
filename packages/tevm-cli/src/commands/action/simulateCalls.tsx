@@ -269,13 +269,37 @@ export default function SimulateCalls({ options }: Props) {
 
 		// Execute the action
 		executeAction: async (client: any, params: any): Promise<any> => {
-			// Check if client supports this method
-			if (!client.simulateCalls) {
-				throw new Error(
-					'simulateCalls action is not available on this client. Make sure you are using a compatible client.',
-				)
+			try {
+				if (client.simulateCalls) {
+					return await client.simulateCalls(params)
+				}
+			} catch {
+				// Older published TEVM clients do not expose eth_simulateV1.
+				// Fall through to independent, non-persisting calls.
 			}
-			return await client.simulateCalls(params)
+
+			const { calls, account, blockNumber, blockTag } = params
+			if (!Array.isArray(calls)) {
+				throw new Error('simulateCalls requires an array of calls')
+			}
+			const results = await Promise.all(
+				calls.map(async (call) => {
+					try {
+						const result = await client.tevmCall({
+							...call,
+							...(account ? { from: account } : {}),
+							...(blockNumber !== undefined ? { blockNumber } : { blockTag }),
+						})
+						return { status: 'success', data: result.rawData ?? result.data ?? '0x' }
+					} catch (error) {
+						return {
+							status: 'failure',
+							error: error instanceof Error ? error.message : String(error),
+						}
+					}
+				}),
+			)
+			return { results }
 		},
 	})
 
