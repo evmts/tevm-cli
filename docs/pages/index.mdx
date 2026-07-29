@@ -3,9 +3,32 @@ title: What is the Tevm CLI?
 description: An in-process Ethereum CLI with persistent forks, readable traces, and typed JSON output.
 ---
 
-# Tevm CLI
+import { InstallCommand } from '../components/InstallCommand'
+import { HeroTerminal } from '../components/HeroTerminal'
+import { CommandExplorer } from '../components/CommandExplorer'
+import { TevmSites } from '../components/TevmSites'
 
-`@tevm/cli` is an **in-process Ethereum command line**. It runs a full EVM inside the
+<div className="tevm-hero">
+	<span className="tevm-hero-eyebrow">@tevm/cli · tevm-run</span>
+	<h1>
+		An EVM in <span className="tevm-hero-accent">your terminal</span>
+	</h1>
+	<p className="tevm-hero-sub">
+		`@tevm/cli` is an in-process Ethereum command line — a full EVM inside the CLI process, no
+		Docker container, no background node, no `anvil` to babysit. `tevm-run` executes TypeScript
+		scripts with the Tevm Solidity bundler already wired in.
+	</p>
+	<div className="tevm-hero-actions">
+		<InstallCommand />
+		<a className="tevm-button" href="/playground">
+			Try the playground →
+		</a>
+	</div>
+</div>
+
+<HeroTerminal />
+
+`@tevm/cli` runs a full EVM inside the
 CLI process — no Docker container, no background node, no `anvil` to babysit — and
 exposes node actions, contract calls, state manipulation, and Solidity compilation as
 ordinary shell commands.
@@ -50,3 +73,15 @@ Most Ethereum tooling makes you choose between a REPL and a daemon. Tevm CLI is 
 - [Scripting with JSON output](/guides/json-output) — the `--json` envelope, for CI and agents.
 - [CLI reference](/cli) — every command, with a runnable example and its real output.
 - [How this repo relates to Tevm](/ecosystem) — where `@tevm/cli` sits among the Tevm repos.
+
+## Explore the commands
+
+Pick a command to watch it run:
+
+<CommandExplorer />
+
+## The Tevm family
+
+This site is one of the `*.tevm.sh` docs sites — jump between them:
+
+<TevmSites />

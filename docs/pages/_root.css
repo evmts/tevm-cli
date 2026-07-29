@@ -1,0 +1,467 @@
+/*
+ * Shared Tevm docs theme — used identically across every *.tevm.sh site.
+ * Tokens are defined with light-dark() so both color schemes stay correct
+ * from a single source of truth.
+ */
+
+:root {
+	--tevm-accent: light-dark(#0085ff, #4da6ff);
+	--tevm-accent-strong: light-dark(#0066cc, #2e8ce6);
+	--tevm-accent-soft: light-dark(rgba(0, 133, 255, 0.08), rgba(77, 166, 255, 0.12));
+
+	--tevm-bg-raised: light-dark(#ffffff, #14161a);
+	--tevm-bg-sunken: light-dark(#f5f6f8, #0c0e11);
+	--tevm-border: light-dark(rgba(16, 24, 40, 0.12), rgba(255, 255, 255, 0.1));
+	--tevm-border-strong: light-dark(rgba(16, 24, 40, 0.2), rgba(255, 255, 255, 0.18));
+
+	--tevm-text: light-dark(#101828, #e6e9ee);
+	--tevm-text-muted: light-dark(#475467, #98a2b3);
+
+	--tevm-terminal-bg: light-dark(#0b0e14, #07090d);
+	--tevm-terminal-border: light-dark(rgba(16, 24, 40, 0.25), rgba(255, 255, 255, 0.12));
+
+	/* terminal output colors — tuned to read in both modes */
+	--tevm-term-prompt: #4da6ff;
+	--tevm-term-flag: #7dd3fc;
+	--tevm-term-string: #fdb022;
+	--tevm-term-success: #32d583;
+	--tevm-term-error: #f97066;
+	--tevm-term-dim: #8b93a3;
+	--tevm-term-text: #c7cfdb;
+
+	--tevm-mono:
+		ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+	--tevm-radius: 10px;
+	--tevm-radius-sm: 6px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Landing hero                                                        */
+/* ------------------------------------------------------------------ */
+
+.tevm-hero {
+	position: relative;
+	margin: -1rem 0 2.5rem;
+	padding: 3.5rem 2rem 3rem;
+	border: 1px solid var(--tevm-border);
+	border-radius: calc(var(--tevm-radius) + 6px);
+	background:
+		radial-gradient(60rem 24rem at 85% -10%, var(--tevm-accent-soft), transparent 60%),
+		radial-gradient(40rem 20rem at -10% 110%, var(--tevm-accent-soft), transparent 60%), var(--tevm-bg-raised);
+	overflow: hidden;
+}
+
+.tevm-hero::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background-image:
+		linear-gradient(var(--tevm-border) 1px, transparent 1px),
+		linear-gradient(90deg, var(--tevm-border) 1px, transparent 1px);
+	background-size: 44px 44px;
+	mask-image: radial-gradient(50rem 26rem at 50% 0%, black, transparent 75%);
+	opacity: 0.35;
+	pointer-events: none;
+}
+
+.tevm-hero > * {
+	position: relative;
+}
+
+.tevm-hero-eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-family: var(--tevm-mono);
+	font-size: 0.78rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--tevm-accent);
+	border: 1px solid var(--tevm-border-strong);
+	border-radius: 999px;
+	padding: 0.25rem 0.75rem;
+	background: var(--tevm-bg-raised);
+}
+
+.tevm-hero h1 {
+	margin: 1rem 0 0.5rem;
+	font-size: clamp(2.2rem, 5vw, 3.4rem);
+	line-height: 1.05;
+	letter-spacing: -0.03em;
+	border: none;
+	padding: 0;
+}
+
+.tevm-hero h1 .tevm-hero-accent {
+	color: var(--tevm-accent);
+}
+
+.tevm-hero-sub {
+	max-width: 42rem;
+	font-size: 1.05rem;
+	color: var(--tevm-text-muted);
+	margin: 0 0 1.75rem;
+}
+
+.tevm-hero-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.tevm-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.9rem;
+	font-weight: 600;
+	padding: 0.55rem 1.1rem;
+	border-radius: var(--tevm-radius-sm);
+	border: 1px solid var(--tevm-border-strong);
+	background: var(--tevm-bg-raised);
+	color: var(--tevm-text);
+	text-decoration: none;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease,
+		transform 0.1s ease;
+}
+
+.tevm-button:hover {
+	border-color: var(--tevm-accent);
+	background: var(--tevm-accent-soft);
+}
+
+.tevm-button:active {
+	transform: translateY(1px);
+}
+
+.tevm-button--primary {
+	background: var(--tevm-accent);
+	border-color: var(--tevm-accent);
+	color: #fff;
+}
+
+.tevm-button--primary:hover {
+	background: var(--tevm-accent-strong);
+	border-color: var(--tevm-accent-strong);
+}
+
+/* ------------------------------------------------------------------ */
+/* Install command                                                     */
+/* ------------------------------------------------------------------ */
+
+.tevm-install {
+	display: inline-flex;
+	align-items: stretch;
+	border: 1px solid var(--tevm-border-strong);
+	border-radius: var(--tevm-radius-sm);
+	overflow: hidden;
+	background: var(--tevm-bg-sunken);
+}
+
+.tevm-install-tabs {
+	display: flex;
+	border-right: 1px solid var(--tevm-border);
+}
+
+.tevm-install-tab {
+	font-family: var(--tevm-mono);
+	font-size: 0.78rem;
+	padding: 0.55rem 0.6rem;
+	background: transparent;
+	border: none;
+	color: var(--tevm-text-muted);
+	cursor: pointer;
+}
+
+.tevm-install-tab[data-active="true"] {
+	color: var(--tevm-accent);
+	background: var(--tevm-accent-soft);
+}
+
+.tevm-install-code {
+	display: flex;
+	align-items: center;
+	font-family: var(--tevm-mono);
+	font-size: 0.85rem;
+	padding: 0 0.9rem;
+	color: var(--tevm-text);
+	white-space: nowrap;
+}
+
+.tevm-install-copy {
+	border: none;
+	border-left: 1px solid var(--tevm-border);
+	background: transparent;
+	color: var(--tevm-text-muted);
+	font-size: 0.75rem;
+	padding: 0 0.8rem;
+	cursor: pointer;
+	font-family: var(--tevm-mono);
+}
+
+.tevm-install-copy:hover {
+	color: var(--tevm-accent);
+	background: var(--tevm-accent-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* Terminal window (shared chrome)                                     */
+/* ------------------------------------------------------------------ */
+
+.tevm-terminal {
+	border: 1px solid var(--tevm-terminal-border);
+	border-radius: var(--tevm-radius);
+	background: var(--tevm-terminal-bg);
+	overflow: hidden;
+}
+
+.tevm-terminal-titlebar {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.55rem 0.85rem;
+	border-bottom: 1px solid var(--tevm-terminal-border);
+}
+
+.tevm-terminal-dot {
+	width: 0.65rem;
+	height: 0.65rem;
+	border-radius: 50%;
+}
+
+.tevm-terminal-dot:nth-child(1) {
+	background: #ff5f57;
+}
+.tevm-terminal-dot:nth-child(2) {
+	background: #febc2e;
+}
+.tevm-terminal-dot:nth-child(3) {
+	background: #28c840;
+}
+
+.tevm-terminal-title {
+	margin-left: 0.5rem;
+	font-family: var(--tevm-mono);
+	font-size: 0.72rem;
+	color: var(--tevm-term-dim);
+}
+
+.tevm-terminal-body {
+	font-family: var(--tevm-mono);
+	font-size: 0.8rem;
+	line-height: 1.7;
+	padding: 0.9rem 1rem;
+	color: var(--tevm-term-text);
+	max-height: 22rem;
+	overflow-y: auto;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+/* ------------------------------------------------------------------ */
+/* Animated terminal lines                                             */
+/* ------------------------------------------------------------------ */
+
+.tevm-term-line {
+	display: block;
+	white-space: pre-wrap;
+	word-break: break-word;
+	animation: tevm-term-in 0.2s ease;
+}
+
+@keyframes tevm-term-in {
+	from {
+		opacity: 0;
+		transform: translateY(3px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.tevm-term-prompt {
+	color: var(--tevm-term-prompt);
+	font-weight: 600;
+	user-select: none;
+}
+
+.tevm-term-command {
+	color: #e6e9ee;
+}
+
+.tevm-term-flag {
+	color: var(--tevm-term-flag);
+}
+
+.tevm-term-string {
+	color: var(--tevm-term-string);
+}
+
+.tevm-term-success {
+	color: var(--tevm-term-success);
+}
+
+.tevm-term-error {
+	color: var(--tevm-term-error);
+}
+
+.tevm-term-dim {
+	color: var(--tevm-term-dim);
+}
+
+.tevm-term-cursor {
+	display: inline-block;
+	width: 0.55em;
+	height: 1.05em;
+	margin-left: 1px;
+	vertical-align: text-bottom;
+	background: var(--tevm-term-prompt);
+	animation: tevm-cursor-blink 1s step-end infinite;
+}
+
+@keyframes tevm-cursor-blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tevm-term-line,
+	.tevm-term-cursor {
+		animation: none;
+	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Command explorer (playground)                                       */
+/* ------------------------------------------------------------------ */
+
+.tevm-playground {
+	display: grid;
+	gap: 1rem;
+	margin: 1.5rem 0;
+}
+
+.tevm-command-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.45rem;
+	padding: 1rem;
+	border: 1px solid var(--tevm-border);
+	border-radius: var(--tevm-radius);
+	background: var(--tevm-bg-raised);
+}
+
+.tevm-command-chip {
+	font-family: var(--tevm-mono);
+	font-size: 0.78rem;
+	padding: 0.35rem 0.7rem;
+	border: 1px solid var(--tevm-border-strong);
+	border-radius: 999px;
+	background: var(--tevm-bg-sunken);
+	color: var(--tevm-text);
+	cursor: pointer;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease;
+}
+
+.tevm-command-chip:hover {
+	border-color: var(--tevm-accent);
+}
+
+.tevm-command-chip[data-active="true"] {
+	color: var(--tevm-accent);
+	border-color: var(--tevm-accent);
+	background: var(--tevm-accent-soft);
+}
+
+.tevm-command-desc {
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--tevm-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Site family switcher                                                */
+/* ------------------------------------------------------------------ */
+
+.tevm-sites {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+	gap: 0.6rem;
+	margin: 1rem 0 2rem;
+}
+
+.tevm-site-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	padding: 0.75rem 0.9rem;
+	border: 1px solid var(--tevm-border);
+	border-radius: var(--tevm-radius);
+	background: var(--tevm-bg-raised);
+	text-decoration: none;
+	transition:
+		border-color 0.15s ease,
+		background 0.15s ease;
+}
+
+.tevm-site-card:hover {
+	border-color: var(--tevm-accent);
+	background: var(--tevm-accent-soft);
+}
+
+.tevm-site-card-name {
+	font-family: var(--tevm-mono);
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--tevm-text);
+}
+
+.tevm-site-card-host {
+	font-size: 0.72rem;
+	color: var(--tevm-text-muted);
+}
+
+.tevm-site-card[data-current="true"] {
+	border-color: var(--tevm-accent);
+	background: var(--tevm-accent-soft);
+}
+
+/* Feature cards */
+.tevm-features {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+	gap: 0.75rem;
+	margin: 1.25rem 0 2rem;
+}
+
+.tevm-feature {
+	padding: 1rem 1.1rem;
+	border: 1px solid var(--tevm-border);
+	border-radius: var(--tevm-radius);
+	background: var(--tevm-bg-raised);
+}
+
+.tevm-feature h3 {
+	margin: 0 0 0.35rem;
+	font-size: 0.95rem;
+	border: none;
+	padding: 0;
+}
+
+.tevm-feature p {
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--tevm-text-muted);
+}
