@@ -2,7 +2,7 @@ import { expect, it } from 'bun:test'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const isCI = process.env.CI === 'true'
+const processTimeout = 60_000
 
 it(
 	'should run a cli',
@@ -18,13 +18,11 @@ it(
 			stderr: 'pipe',
 		})
 
-		// Set up timeout to prevent hanging (longer in CI)
-		const timeoutId = setTimeout(
-			() => {
-				proc.kill()
-			},
-			isCI ? 30000 : 12000,
-		)
+		// Compiling the Solidity fixture can take tens of seconds from a cold
+		// dependency/compiler cache, especially on shared CI runners.
+		const timeoutId = setTimeout(() => {
+			proc.kill()
+		}, processTimeout)
 
 		try {
 			// Wait for process to complete
@@ -67,5 +65,5 @@ it(
 			}
 		}
 	},
-	isCI ? 35000 : 15000,
+	processTimeout + 5_000,
 )
