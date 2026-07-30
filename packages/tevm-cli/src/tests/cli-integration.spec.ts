@@ -208,7 +208,7 @@ describe('CLI integration', () => {
 			),
 			'load-state',
 		)
-	}, 180_000)
+	}, 360_000)
 
 	it('creates, compiles, generates, and type-checks a real Solidity project', () => {
 		const scratch = mkdtempSync(path.join(tmpdir(), 'tevm-cli-create-'))

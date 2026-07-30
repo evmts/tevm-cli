@@ -61,7 +61,7 @@
 		"@tevm/bun-plugin": "^1.0.0-next.148",
 		"bun": "*",
 		"bun-types": ">=1.0.0",
-		"tevm": ">=1.0.0"
+		"tevm": "^1.0.0-next.149"
 	},
 	"engines": {
 		"bun": ">=1.0.0",
