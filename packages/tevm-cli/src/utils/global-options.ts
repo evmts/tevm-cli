@@ -81,3 +81,33 @@ export function normalizeGlobalOptions(argv: string[]): NormalizedCliArguments {
 export function shouldRunDirectly(options: Record<string, unknown>): boolean {
 	return options['run'] === true || options['json'] === true
 }
+
+/**
+ * Render a global-option error the way the rest of the CLI reports failures.
+ *
+ * With `--json` (flag or `TEVM_JSON=true`) the error is a JSON failure envelope on stdout,
+ * so scripts parsing output still get valid JSON. Otherwise it is a single `error:` line
+ * for stderr, matching Commander's own usage errors.
+ *
+ * @example
+ * ```ts
+ * formatGlobalOptionsError(['node', 'tevm', 'call', '--session'], new Error('--session requires a name'))
+ * // { stream: 'stderr', text: 'error: --session requires a name\n' }
+ * ```
+ */
+export function formatGlobalOptionsError(
+	argv: string[],
+	error: unknown,
+): { stream: 'stdout' | 'stderr'; text: string } {
+	const message = error instanceof Error ? error.message : String(error)
+	const args = argv.slice(2)
+	const json =
+		args.includes('--json') ||
+		args.some((value) => value.startsWith('--json=') && value !== '--json=false') ||
+		(process.env['TEVM_JSON'] === 'true' && !args.includes('--no-json'))
+	if (!json) {
+		return { stream: 'stderr', text: `error: ${message}\n` }
+	}
+	const command = args.find((value) => !value.startsWith('-')) ?? 'tevm'
+	return { stream: 'stdout', text: `${JSON.stringify({ ok: false, command, error: { message } }, null, 2)}\n` }
+}

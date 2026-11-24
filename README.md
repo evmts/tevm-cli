@@ -53,6 +53,19 @@ pnpm test
 `tevm-run` itself executes and tests scripts with Bun, so Bun must also be
 installed when working on that package.
 
+### Test suites
+
+| Suite | Command | What it covers |
+| --- | --- | --- |
+| Unit + e2e | `pnpm test` | Both packages. `tevm-cli` builds first, then spawns the real `tevm` binary (`src/tests/`); `tevm-run` spawns the real `tevm-run` binary (`src/tevm-run.spec.ts`). |
+| CLI e2e only | `pnpm --filter @tevm/cli test:e2e` | `--help`, `--version`, unknown commands, missing `--session` names, bad sessions, plus full session, deploy, and `serve` flows. |
+| Fuzz | `pnpm --filter @tevm/cli test:fuzz`, `pnpm --filter tevm-run test:fuzz` | fast-check properties for global-option parsing, session names, block numbers, and `tevm-run` argv forwarding at 5000 runs. The default `pnpm test` runs them at 500. |
+| Bench | `pnpm --filter @tevm/cli bench`, `pnpm --filter tevm-run bench` | Vitest benchmarks for argument parsing, session helpers, and JSON output. |
+
+Tests that need a live fork RPC read `TEVM_RPC_URLS_MAINNET` and
+`TEVM_RPC_URLS_OPTIMISM`. Locally they fall back to public RPCs; in CI they skip
+when those secrets are absent.
+
 ## Documentation
 
 The documentation site lives in [`docs/`](./docs) and is built with
@@ -64,7 +77,9 @@ pnpm docs:build  # static build to docs/dist/public
 pnpm docs:preview
 ```
 
-It deploys to [cli.tevm.sh](https://cli.tevm.sh/) on Vercel.
+It deploys to [cli.tevm.sh](https://cli.tevm.sh/) on Vercel from `main`. The deploy job
+needs the `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets; without them it
+skips with a notice and stays green.
 
 ## Releases
 

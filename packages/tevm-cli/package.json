@@ -43,7 +43,10 @@
 		"test": "pnpm run build && vitest run",
 		"test:coverage": "pnpm run build && vitest run --coverage",
 		"test:run": "vitest run",
-		"typecheck": "tsc --noEmit --skipLibCheck"
+		"typecheck": "tsc --noEmit --skipLibCheck",
+		"bench": "vitest bench --run",
+		"test:fuzz": "FUZZ_RUNS=5000 vitest run src/utils/global-options.fuzz.spec.ts",
+		"test:e2e": "pnpm run build && vitest run src/tests"
 	},
 	"files": [
 		"dist"
@@ -84,6 +87,7 @@
 		"@types/ink-gradient": "^2.0.4",
 		"@types/node": "^24.10.9",
 		"@types/react": "^19.2.14",
+		"fast-check": "^4.11.0",
 		"ink-testing-library": "^4.0.0",
 		"tsx": "^4.22.2",
 		"typescript": "^6.0.3",

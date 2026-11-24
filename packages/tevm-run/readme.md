@@ -47,13 +47,13 @@ console.log(await client.readContract(counter.read.number()))
 bunx tevm-run ./script.ts
 ```
 
-Arguments after the script path are forwarded unchanged:
+Arguments after the script path are forwarded unchanged, including flags. `tevm-run` logs only the script path, so forwarded secrets stay out of logs:
 
 ```sh
 bunx tevm-run ./script.ts --network optimism
 ```
 
-The package also exports `run`, `parseArgs`, `resolveConfigPath`,
+The package also exports `run`, `runArgs`, `parseArgs`, `resolveConfigPath`,
 `configPath`, and `argsSchema` for programmatic use.
 
 ## Documentation

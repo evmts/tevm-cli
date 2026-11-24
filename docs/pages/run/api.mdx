@@ -9,7 +9,7 @@ description: The programmatic exports of the tevm-run package.
 you can embed the runner in a build script or a test harness.
 
 ```ts
-import { argsSchema, configPath, parseArgs, run } from 'tevm-run'
+import { argsSchema, configPath, parseArgs, resolveConfigPath, run, runArgs } from 'tevm-run'
 ```
 
 All exports are documented with JSDoc in
@@ -18,14 +18,16 @@ All exports are documented with JSDoc in
 ## `run`
 
 ```ts
-function run(positionals?: string[]): Promise<import('bun').ShellOutput>
+function run(positionals?: string[]): Promise<import('bun').$.ShellOutput>
 ```
 
 Execute a script with Bun using the `tevm-run` bunfig, which preloads the Tevm Solidity
 plugin so the script can `import` `.sol` files directly.
 
-The script's stdout and stderr stream to the calling process. On a non-zero exit, the
-captured output is echoed before throwing, so failures stay readable in CI logs.
+The script's stdout and stderr stream to the calling process. `run` logs one line,
+`[tevm-run] <scriptPath>`. It never logs forwarded arguments, because they can carry
+secrets such as RPC URLs or private keys. On a non-zero exit, the captured output is echoed
+before throwing, so failures stay readable in CI logs.
 
 **Parameters**
 
@@ -35,7 +37,7 @@ captured output is echoed before throwing, so failures stay readable in CI logs.
 
 **Returns** — `Promise<ShellOutput>`, the completed Bun shell result.
 
-**Throws** — `Error` if the script exits non-zero. The underlying Bun shell error is
+**Throws** — `Error('No script path provided.')` if `positionals` is empty. `Error` if the script exits non-zero. The underlying Bun shell error is
 attached as `cause`, so `err.cause.exitCode`, `err.cause.stdout`, and `err.cause.stderr`
 are available.
 
@@ -58,20 +60,55 @@ try {
 function parseArgs(rawArgs: string[]): { values: Record<string, never>; positionals: string[] }
 ```
 
-Split a raw `process.argv` into the script path and the arguments forwarded to it. The Bun
-executable and the `tevm-run` entry point are stripped, so the returned `positionals` start
-at the script path.
+Split a raw `process.argv` into the script path and the arguments forwarded to it.
 
-**Throws** — `Error` if no script path follows `tevm-run`; `TypeError` if an unrecognised
-`--flag` is present, because [`argsSchema`](#argsschema) is strict.
+- Everything up to and including the `tevm-run` entry point (a bare `tevm-run` or a path
+  ending in `/tevm-run` or `/tevm-run.js`) is stripped. Without an entry point, the first two
+  entries are stripped, like `process.argv`.
+- Everything after the script path is forwarded verbatim, including `--flags`, `-v`, and
+  `--`.
+- A leading `--` before the script path is dropped, so `tevm-run -- ./script.ts` works.
+
+**Throws** — `Error('No script path provided.')` if no script path follows `tevm-run` (it
+also prints the usage line to stderr); `TypeError` if a `--flag` appears *before* the script
+path, because `tevm-run` has no flags of its own and [`argsSchema`](#argsschema) is strict.
 
 ```ts
 import { parseArgs } from 'tevm-run'
 
-const { positionals } = parseArgs(['/bin/bun', '/usr/local/bin/tevm-run', './script.ts', 'alice'])
+const { positionals } = parseArgs(['/bin/bun', '/usr/local/bin/tevm-run', './script.ts', '--network', 'optimism'])
 console.log(positionals)
-// [ './script.ts', 'alice' ]
+// [ './script.ts', '--network', 'optimism' ]
 ```
+
+## `runArgs`
+
+```ts
+function runArgs(scriptPath: string, positionals: ReadonlyArray<string>): string[]
+```
+
+Build the argument list `run` passes to `bun`. Use it to spawn Bun yourself with the same
+config `tevm-run` uses.
+
+```ts
+import { runArgs } from 'tevm-run'
+
+runArgs('./script.ts', ['--network', 'optimism'])
+// ['run', '--config=/tmp/tevm-run-XXXX/bunfig.toml', '--install=fallback', './script.ts', '--network', 'optimism']
+```
+
+## `resolveConfigPath`
+
+```ts
+function resolveConfigPath(): string
+```
+
+Return the path of a generated `bunfig.toml` whose `preload` points at the absolute path of
+`plugins.js`. Bun resolves a relative `preload` against the working directory, so the
+packaged `bunfig.toml` only works from inside the package; this one works from any
+directory. The file is written to a temp directory once per process and reused.
+
+**Throws** — `Error` if the temp directory is not writable.
 
 ## `configPath`
 
@@ -79,14 +116,15 @@ console.log(positionals)
 const configPath: string
 ```
 
-Absolute path to the `bunfig.toml` that `tevm-run` passes to `bun run --config`. Useful if
-you want to invoke Bun yourself but keep the Tevm plugin preload:
+Absolute path to the `bunfig.toml` shipped inside the package. Its `preload` entry is
+relative, so it only works when Bun runs from the package directory. To invoke Bun yourself
+with the Tevm plugin preload, use [`resolveConfigPath`](#resolveconfigpath):
 
 ```ts
-import { configPath } from 'tevm-run'
+import { resolveConfigPath } from 'tevm-run'
 import { $ } from 'bun'
 
-await $`bun test --config=${configPath}`
+await $`bun test --config=${resolveConfigPath()}`
 ```
 
 ## `argsSchema`

@@ -59,7 +59,7 @@ jobs:
     name: Deploy to Vercel
     needs: build
     runs-on: ubuntu-latest
-    # Deploys only from main, and only when the Vercel credentials are configured.
+    # Deploys only from main; skips (green) when the Vercel credentials are not configured.
     if: github.event_name != 'pull_request' && github.repository == 'evmts/tevm-cli'
     environment:
       name: docs
@@ -67,34 +67,51 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
+      # Secrets cannot gate a job-level `if`, so check them here and skip the
+      # remaining steps (job stays green) when the repository has none configured.
+      - name: Check Vercel credentials
+        id: credentials
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::notice title=Docs deploy skipped::VERCEL_TOKEN, VERCEL_ORG_ID, or VERCEL_PROJECT_ID is not configured."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check out repository
+        if: steps.credentials.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Set up pnpm
+        if: steps.credentials.outputs.enabled == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
           run_install: false
 
       - name: Set up Node.js
+        if: steps.credentials.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.credentials.outputs.enabled == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Build docs site
+        if: steps.credentials.outputs.enabled == 'true'
         run: pnpm docs:build
 
       - name: Deploy to Vercel
+        if: steps.credentials.outputs.enabled == 'true'
         run: |
           npx --yes vercel@latest deploy docs/dist/public \
             --prod \
             --yes \
             --archive=tgz \
             --token "$VERCEL_TOKEN"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

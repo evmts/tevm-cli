@@ -25,10 +25,11 @@ tevm-run ./script.ts
 `tevm-run ./script.ts arg1 arg2` shells out to:
 
 ```bash
-bun run --config=<tevm-run>/bunfig.toml --install=fallback ./script.ts arg1 arg2
+bun run --config=<generated>/bunfig.toml --install=fallback ./script.ts arg1 arg2
 ```
 
-That bundled `bunfig.toml` does two things:
+The generated `bunfig.toml` is a copy of the packaged one with an absolute `preload` path,
+so `tevm-run` works from any working directory. It does two things:
 
 1. **Preloads `plugins.js`**, which registers [`@tevm/bun-plugin`](https://node.tevm.sh/reference/bundler-plugins).
    This is what teaches Bun's module resolver to compile `.sol` imports.
@@ -36,7 +37,14 @@ That bundled `bunfig.toml` does two things:
    `node_modules` is fetched on demand instead of crashing the script.
 
 `tevm-run` itself takes **no flags**. Everything after the script path is forwarded to
-the script verbatim, and an unrecognised flag is a hard error rather than a silent drop.
+the script verbatim, including flags such as `--network optimism`. A flag *before* the
+script path is a hard error rather than a silent drop; use `tevm-run -- ./script.ts` if the
+script path itself starts with `-`.
+
+`tevm-run` prints `[tevm-run] <scriptPath>` and nothing about the forwarded arguments, so
+secrets passed as arguments stay out of CI logs. If the script exits non-zero, `tevm-run`
+prints `Failed with code <n>` and the script's stderr, then exits `1`. Without a script path
+it prints `Usage: tevm-run <scriptPath> [positionals...]` and exits `1`.
 
 ## Requirements
 

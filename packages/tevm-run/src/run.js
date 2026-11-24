@@ -1,17 +1,28 @@
 import { $ } from 'bun'
-import { resolveConfigPath } from './configPath.js'
 import { parseArgs } from './parseArgs.js'
+import { runArgs } from './runArgs.js'
+
+/**
+ * Type guard for errors thrown by the Bun shell when a command exits non-zero.
+ *
+ * @param {unknown} err
+ * @returns {err is { stdout: { toString(): string }, stderr: { toString(): string }, exitCode: number }}
+ */
+const isShellError = (err) =>
+	typeof err === 'object' && err !== null && 'stdout' in err && 'stderr' in err && 'exitCode' in err
 
 /**
  * Execute a script with Bun using the `tevm-run` bunfig, which preloads the Tevm
  * Solidity plugin so the script can `import` `.sol` files directly.
  *
- * The script's stdout and stderr stream to this process. On a non-zero exit the captured
- * output is echoed before throwing, so failures stay readable in CI logs.
+ * The script's stdout and stderr stream to this process. Only the script path is logged;
+ * forwarded arguments are not, because they can carry secrets such as RPC URLs or keys.
+ * On a non-zero exit the captured output is echoed before throwing, so failures stay
+ * readable in CI logs.
  *
  * @param {string[]} [positionals] - `[scriptPath, ...scriptArgs]`. Defaults to the positionals
  *   parsed out of `process.argv`, which is what the `tevm-run` binary passes.
- * @returns {Promise<import('bun').ShellOutput>} The completed shell result.
+ * @returns {Promise<import('bun').$.ShellOutput>} The completed shell result.
  * @throws {Error} If the script exits non-zero. The underlying Bun shell error is attached as `cause`.
  * @example
  * ```js
@@ -21,14 +32,14 @@ import { parseArgs } from './parseArgs.js'
  * ```
  */
 export const run = async ([scriptPath, ...positionals] = parseArgs(process.argv).positionals) => {
-	// Resolved rather than the packaged bunfig: Bun reads `preload` relative to the current
-	// working directory, so the packaged relative path only works from the package itself.
-	const config = resolveConfigPath()
+	if (scriptPath === undefined) {
+		throw new Error('No script path provided.')
+	}
 	try {
-		const command = `[tevm-run] bun run --bun --config=${config} --install=fallback ${scriptPath} ${positionals.join(' ')}`
-		console.log(command)
-		return await $`bun run --config=${config} --install=fallback ${scriptPath} ${positionals}`
+		console.log(`[tevm-run] ${scriptPath}`)
+		return await $`bun ${runArgs(scriptPath, positionals)}`
 	} catch (err) {
+		if (!isShellError(err)) throw err
 		console.log('error')
 		console.log(err.stdout.toString())
 		console.error(`Failed with code ${err.exitCode}`)

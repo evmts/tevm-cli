@@ -181,6 +181,12 @@ Set these once instead of repeating flags across a script:
 environment form work on every command, including ones whose own schema does not declare
 them. `--no-json` overrides `TEVM_JSON=true` for a single invocation.
 
+`--session` must be followed by a name: `--session demo` or `--session=demo`. A bare
+`--session`, an empty `--session=`, or `--session` followed by another flag exits `1` before
+any command runs. Without JSON output it prints `error: --session requires a name` to
+stderr; with `--json` (or `TEVM_JSON=true`) it prints the usual failure envelope on stdout.
+Use `--session=-name` for a session name that starts with `-`.
+
 ## Exit codes
 
 A failed command exits `1` **and** prints a well-formed `{ ok: false, ... }` envelope on
