@@ -1,5 +1,14 @@
 # @tevm/cli
 
+## 1.0.0
+
+### Patch Changes
+
+- [`326665f`](https://github.com/evmts/tevm-cli/commit/326665f1b9b952f6eb7992fdf2ae7f7f5ffbf784) Thanks [@roninjin10](https://github.com/roninjin10)! - Publish the independently versioned TEVM command-line applications from their
+  new standalone repository.
+
+- [`6d764b0`](https://github.com/evmts/tevm-cli/commit/6d764b04de0ef83be16dcfac77b3b41833d3923a) Thanks [@roninjin10](https://github.com/roninjin10)! - Report a missing `--session` name as `error: --session requires a name` (or a JSON failure envelope under `--json`) with exit code 1, instead of crashing with a stack trace.
+
 ## 1.0.0-rc.151
 
 ### Patch Changes
